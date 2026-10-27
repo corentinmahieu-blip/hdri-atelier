@@ -5,9 +5,9 @@
 @media(orientation:landscape) and (max-height:360px){.sidebar{grid-template-rows:20px 3px 12px minmax(30px,1fr) 11px 26px;gap:3px;padding:6px}.sidebar .stage,.map-container{display:none}.sidebar>button{min-height:26px}.count{font-size:17px}.instruction>div{padding:6px 10px}#instruction{font-size:14px}#detail{font-size:9px}.camera-top{top:8px}.pill{padding:4px 7px;font-size:10px}}
 </style></head>
 <body>
-<div class="rotate-screen"><div><div class="eyebrow">CoMa · HDRI Atelier V3.0</div><div class="rotate-icon" aria-hidden="true"></div><h2>Tourne ton téléphone.</h2><p>Le parcours se fait en paysage, avec le panorama visible à côté de la caméra.</p><small>Si l’écran ne tourne pas, désactive le verrouillage de rotation dans le Centre de contrôle de l’iPhone.</small></div></div>
+<div class="rotate-screen"><div><div class="eyebrow">CoMa · HDRI Atelier V3.1</div><div class="rotate-icon" aria-hidden="true"></div><h2>Tourne ton téléphone.</h2><p>Le parcours se fait en paysage, avec le panorama visible à côté de la caméra.</p><small>Si l’écran ne tourne pas, désactive le verrouillage de rotation dans le Centre de contrôle de l’iPhone.</small></div></div>
 <main class="app">
- <header class="topbar"><div class="brand"><h1>HDRI Atelier</h1><span class="version">V3.0</span><span class="eyebrow">CoMa / Capture environnement</span></div><div class="top-actions"><span id="demoBadge" class="pill demo" hidden>DÉMONSTRATION</span><button id="help" class="quiet small">Guide</button><button id="settings" class="quiet small">Réglages</button></div></header>
+ <header class="topbar"><div class="brand"><h1>HDRI Atelier</h1><span class="version">V3.1</span><span class="eyebrow">CoMa / Capture environnement</span></div><div class="top-actions"><span id="demoBadge" class="pill demo" hidden>DÉMONSTRATION</span><button id="help" class="quiet small">Guide</button><button id="settings" class="quiet small">Réglages</button></div></header>
  <div class="workspace">
   <section id="cameraPane" class="camera-pane" aria-label="Caméra et guidage sur la sphère">
    <video id="video" autoplay muted playsinline></video><canvas id="demoView" hidden></canvas><canvas id="overlay"></canvas>
@@ -20,7 +20,7 @@
    <div class="preview-label"><span><i class="live-dot"></i>Assemblage en direct</span><span id="previewStatus">0 photo</span></div>
    <div class="live-preview"><canvas id="sphere"></canvas><div id="emptyPreview" class="empty-preview">Ta première photo apparaîtra ici.</div><button class="small quiet" id="expand" aria-label="Agrandir le panorama">⤢</button></div>
    <div class="map-container"><canvas id="map" aria-label="Carte des photos réparties sur la sphère"></canvas></div>
-   <div class="legend"><span class="colors">Bleu : prochaine vue · Vert : prise</span><br>Aperçu projeté · raccords approximatifs</div>
+   <div class="legend"><span class="colors">Bleu : prochaine vue · Vert : prise</span><br><span id="alignmentStatus">Raccords à vérifier</span></div>
    <button id="export" class="small" disabled>Exporter la session</button>
   </aside>
  </div>
@@ -28,18 +28,19 @@
 </main>
 <section id="introModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="introTitle"><div class="modal-card">
  <div class="modal-head"><span class="eyebrow">Un tour complet · 54 directions</span><button id="closeIntro" class="quiet small" hidden>Fermer</button></div>
- <div class="intro-content"><div><h2 id="introTitle">Photographie tout<br>autour de toi.</h2><p>Vise le point bleu. Reste immobile : la photo rejoint aussitôt l’aperçu du panorama.</p><p>Garde l’objectif au même endroit, même quand tu te tournes.</p></div>
+ <div class="intro-content"><div><h2 id="introTitle">Photographie tout<br>autour de toi.</h2><p>Vise le point bleu. Reste immobile : l’app compare trois images de la vidéo, puis ajoute la prise à l’aperçu du panorama.</p><p>Garde l’objectif au même endroit, même quand tu te tournes.</p></div>
  <ol class="steps"><li><b>1</b><div><strong>Active la caméra et les capteurs</strong>Autorise les demandes de Safari.</div></li><li><b>2</b><div><strong>Vise devant toi, à l’horizontale</strong>La première photo définit le départ.</div></li><li><b>3</b><div><strong>Suis la sphère de points</strong>L’horizon, le haut, puis le bas.</div></li></ol></div>
- <div class="modal-actions"><button id="start" class="primary">Activer et commencer</button><button id="demo" class="quiet">Essayer la démonstration</button></div><div id="startStatus" class="status-box" role="status"></div>
- <p class="muted" style="margin-top:12px">Photos gardées dans cette page : exporte avant de la fermer.</p>
+ <div class="modal-actions"><button id="start" class="primary">Activer et commencer</button><button id="demo" class="quiet">Essayer la démonstration</button></div><div id="recoverActions" class="modal-actions" hidden><button id="recoverReview">Voir la session retrouvée</button><button id="recoverExport">Exporter les photos retrouvées</button></div><div id="startStatus" class="status-box" role="status"></div>
+ <p class="muted" style="margin-top:12px"><span id="saveStatus">Sauvegarde locale automatique · export conseillé</span></p>
 </div></section>
-<section id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden><div class="modal-card"><div class="modal-head"><h2 id="settingsTitle">Réglages</h2><button data-close="settingsModal" class="quiet small">Fermer</button></div><p class="muted">Ces paramètres restent fixes pendant une session.</p><label class="settings-row"><span>Angle de champ estimé<br><small id="fovLabel">64°</small></span><input id="fov" type="range" min="48" max="90" step="1" value="64"></label><p class="notes">L’aperçu place les photos à partir des capteurs et de cet angle estimé. Il peut présenter des décalages ou des images doubles. L’assemblage final et un véritable HDR nécessitent un traitement complémentaire.</p><div class="modal-actions"><button id="recalibrate" disabled>Recaler sur la photo 1</button><button id="reset" class="quiet danger">Nouvelle session</button></div></div></section>
-<section id="reviewModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle" hidden><div class="modal-card review-card"><div class="modal-head"><h2 id="reviewTitle">Ton panorama</h2><button data-close="reviewModal" class="quiet small">Revenir à la capture</button></div><div class="review-view" id="reviewView"><canvas id="reviewSphere"></canvas></div><p class="review-tip">Glisse pour regarder autour de toi. Une zone vide reste à photographier. Touche une vignette pour la reprendre.</p><div id="thumbs" class="thumbs"></div></div></section>
+<section id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden><div class="modal-card"><div class="modal-head"><h2 id="settingsTitle">Réglages</h2><button data-close="settingsModal" class="quiet small">Fermer</button></div><p class="muted">Ces paramètres restent fixes pendant une session.</p><label class="settings-row"><span>Angle de champ estimé<br><small id="fovLabel">64°</small></span><input id="fov" type="range" min="48" max="90" step="1" value="64"></label><p class="notes">L’aperçu place les photos à partir des capteurs et de cet angle estimé. Le recalage des détails est tenté entre les photos. Un raccord insuffisamment étayé reste estimé par les capteurs. L’assemblage final et un véritable HDR nécessitent un traitement complémentaire.</p><div class="modal-actions"><button id="recalibrate" disabled>Recaler sur la photo 1</button><button id="reset" class="quiet danger">Nouvelle session</button></div></div></section>
+<section id="reviewModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle" hidden><div class="modal-card review-card"><div class="modal-head"><h2 id="reviewTitle">Ton panorama</h2><button data-close="reviewModal" class="quiet small">Revenir à la capture</button></div><div class="review-view" id="reviewView"><canvas id="reviewSphere"></canvas></div><p class="review-tip">Glisse pour regarder autour de toi. Une zone vide reste à photographier. Touche une vignette pour voir la photo originale ou la reprendre.</p><div id="thumbs" class="thumbs"></div></div></section>
 <section id="exportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle" hidden><div class="modal-card"><div class="modal-head"><h2 id="exportTitle">Exporter ta session</h2><button data-close="exportModal" class="quiet small">Fermer</button></div><p id="exportInfo"></p><p class="muted" style="margin-top:10px">Un seul ZIP : photos originales, positions et aperçu panoramique. Cet aperçu est SDR, avec des raccords approximatifs.</p><div class="modal-actions"><button id="buildZip" class="primary">Préparer le ZIP</button><button id="downloadZip" hidden>Télécharger</button><button id="shareZip" hidden>Partager / Enregistrer</button></div><div id="exportStatus" class="status-box" role="status"></div></div></section>
 <section id="recalModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="recalTitle" hidden><div class="modal-card"><div class="modal-head"><h2 id="recalTitle">Retrouve la première vue</h2><button data-close="recalModal" class="quiet small">Annuler</button></div><p class="muted">La première photo va apparaître en transparence sur la caméra. Replace l’objectif au point de départ et aligne les mêmes détails. Valide ensuite le recalage.</p><div class="modal-actions"><button id="beginRecal" class="primary">Afficher la référence</button></div></div></section>
+<section id="photoModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="originalTitle" hidden><div class="modal-card review-card"><div class="modal-head"><h2 id="originalTitle">Photo originale</h2><button data-close="photoModal" class="quiet small">Fermer</button></div><img id="originalImage" alt="Photo originale capturée" style="object-fit:contain;min-height:0;flex:1;width:100%"><div class="modal-actions"><button id="retakeOriginal">Reprendre cette photo</button></div></div></section>
 <div id="toast" class="toast" hidden role="status"></div>
 <script>'use strict';
-const WORKER_SOURCE="// Incremental equirectangular reprojection, not feature-based stitching.\n// Pixels are placed from their capture-time basis and estimated focal angle.\nclass Mosaic {\n  constructor(width=1536,height=768){\n    this.width=width;this.height=height;\n    this.sum=new Float32Array(width*height*4);\n    this.rays=new Float32Array(width*height*3);\n    for(let y=0;y<height;y++){\n      const p=(.5-(y+.5)/height)*Math.PI,cp=Math.cos(p);\n      for(let x=0;x<width;x++){\n        const a=((x+.5)/width-.5)*Math.PI*2,i=(y*width+x)*3;\n        this.rays[i]=Math.sin(a)*cp;this.rays[i+1]=Math.cos(a)*cp;this.rays[i+2]=Math.sin(p);\n      }\n    }\n  }\n  add(data,iw,ih,basis,hfov){\n    const tx=Math.tan(hfov*Math.PI/360),ty=tx*ih/iw;\n    const {right:r,up:u,forward:f}=basis;\n    const rays=this.rays,sum=this.sum;\n    for(let i=0,j=0;i<sum.length;i+=4,j+=3){\n      const x=rays[j],y=rays[j+1],z=rays[j+2],depth=x*f[0]+y*f[1]+z*f[2];\n      if(depth<=0)continue;\n      const nx=(x*r[0]+y*r[1]+z*r[2])/(depth*tx),ny=(x*u[0]+y*u[1]+z*u[2])/(depth*ty);\n      if(Math.abs(nx)>=1||Math.abs(ny)>=1)continue;\n      const px=(nx+1)*.5*(iw-1),py=(1-ny)*.5*(ih-1),ix=Math.floor(px),iy=Math.floor(py),dx=px-ix,dy=py-iy;\n      const k=(iy*iw+ix)*4,kx=Math.min(ix+1,iw-1)*4+iy*iw*4,ky=(Math.min(iy+1,ih-1)*iw+ix)*4,kxy=(Math.min(iy+1,ih-1)*iw+Math.min(ix+1,iw-1))*4;\n      const weight=Math.max(.005,Math.min(1,(1-Math.abs(nx))*5,(1-Math.abs(ny))*5));\n      for(let c=0;c<3;c++)sum[i+c]+=weight*((data[k+c]*(1-dx)+data[kx+c]*dx)*(1-dy)+(data[ky+c]*(1-dx)+data[kxy+c]*dx)*dy);\n      sum[i+3]+=weight;\n    }\n  }\n  pixels(){\n    const data=new Uint8ClampedArray(this.width*this.height*4);\n    for(let i=0;i<data.length;i+=4){const w=this.sum[i+3];if(w){data[i]=this.sum[i]/w;data[i+1]=this.sum[i+1]/w;data[i+2]=this.sum[i+2]/w;data[i+3]=255;}}\n    return data;\n  }\n}\n\nlet mosaic;\nself.onmessage=({data:m})=>{\n  try {\n    if(m.type==='reset'){mosaic=new Mosaic(m.width,m.height);return;}\n    if(m.type==='add'){\n      mosaic.add(m.data,m.width,m.height,m.basis,m.hfov);\n      const pixels=mosaic.pixels();self.postMessage({id:m.id,pixels},[pixels.buffer]);\n    }\n  }catch(e){self.postMessage({id:m.id,error:e.message});}\n};\n";
+const WORKER_SOURCE="// Conservative image registration with a sensor prior.\n// Harris corners, perspective-warped NCC patches and robust 3D rotation fitting.\n// Assumes a fixed camera centre and approximate focal length. No translation/SLAM.\nconst regDot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];\nconst regCross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];\nconst regUnit=a=>{const n=Math.hypot(...a);return n>1e-9?a.map(v=>v/n):null;};\nconst regApply=(R,v)=>R.map(row=>regDot(row,v));\nfunction cameraRay(x,y,w,h,hfov){const f=w/(2*Math.tan(hfov*Math.PI/360));return regUnit([(x-(w-1)/2)/f,((h-1)/2-y)/f,-1]);}\nfunction worldRay(v,b){return v.map((_,i)=>b.right[i]*v[0]+b.up[i]*v[1]-b.forward[i]*v[2]);}\nfunction imagePoint(v,b,w,h,hfov){const depth=regDot(v,b.forward);if(depth<.05)return null;const f=w/(2*Math.tan(hfov*Math.PI/360));return {x:(w-1)/2+f*regDot(v,b.right)/depth,y:(h-1)/2-f*regDot(v,b.up)/depth};}\nfunction sample(g,w,h,x,y){if(x<0||y<0||x>=w-1||y>=h-1)return NaN;const ix=Math.floor(x),iy=Math.floor(y),dx=x-ix,dy=y-iy,i=iy*w+ix;return (g[i]*(1-dx)+g[i+1]*dx)*(1-dy)+(g[i+w]*(1-dx)+g[i+w+1]*dx)*dy;}\nfunction registrationFrame(data,w,h,basis,hfov){\n  const width=Math.min(384,w),height=Math.round(width*h/w),g=new Float32Array(width*height);\n  for(let y=0;y<height;y++)for(let x=0;x<width;x++){\n    const sx=Math.min(w-1,Math.round((x+.5)*w/width-.5)),sy=Math.min(h-1,Math.round((y+.5)*h/height-.5)),i=(sy*w+sx)*4;\n    g[y*width+x]=(data[i]*.299+data[i+1]*.587+data[i+2]*.114);\n  }\n  // 3x3 low-pass before corner selection / patch correlation.\n  const gray=g.slice();for(let y=1;y<height-1;y++)for(let x=1;x<width-1;x++){const i=y*width+x;gray[i]=(g[i]*4+(g[i-1]+g[i+1]+g[i-width]+g[i+width])*2+g[i-width-1]+g[i-width+1]+g[i+width-1]+g[i+width+1])/16;}\n  const candidates=[];\n  for(let y=8;y<height-8;y+=3)for(let x=8;x<width-8;x+=3){\n    let xx=0,yy=0,xy=0;\n    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const i=(y+dy)*width+x+dx,gx=gray[i+1]-gray[i-1],gy=gray[i+width]-gray[i-width];xx+=gx*gx;yy+=gy*gy;xy+=gx*gy;}\n    const score=xx*yy-xy*xy-.05*(xx+yy)**2;if(score>2e5)candidates.push({x,y,score});\n  }\n  candidates.sort((a,b)=>b.score-a.score);const features=[];\n  for(const p of candidates){if(features.every(q=>(p.x-q.x)**2+(p.y-q.y)**2>11**2)){features.push(p);if(features.length===220)break;}}\n  return {gray,width,height,basis,hfov,features};\n}\nfunction matchFrames(frame,ref){\n  const matches=[],patch=4,radius=40,step=2,w=frame.width,h=frame.height;\n  for(const key of ref.features){\n    const ray=worldRay(cameraRay(key.x,key.y,ref.width,ref.height,ref.hfov),ref.basis);\n    const predicted=imagePoint(ray,frame.basis,w,h,frame.hfov);\n    if(!predicted||predicted.x<patch-radius||predicted.x>w-patch+radius||predicted.y<patch-radius||predicted.y>h-patch+radius)continue;\n    const template=[];let mean=0,valid=true;\n    for(let dy=-patch;dy<=patch;dy++)for(let dx=-patch;dx<=patch;dx++){\n      const wr=worldRay(cameraRay(predicted.x+dx,predicted.y+dy,w,h,frame.hfov),frame.basis),q=imagePoint(wr,ref.basis,ref.width,ref.height,ref.hfov);\n      const value=q?sample(ref.gray,ref.width,ref.height,q.x,q.y):NaN;\n      if(!Number.isFinite(value))valid=false;template.push(value);mean+=value;\n    }\n    if(!valid)continue;mean/=template.length;let energy=0;for(let i=0;i<template.length;i++){template[i]-=mean;energy+=template[i]**2;}if(energy<800)continue;\n    const scoreAt=(x,y)=>{let sum=0,sum2=0,corr=0,n=0;for(let dy=-patch;dy<=patch;dy++)for(let dx=-patch;dx<=patch;dx++){const v=frame.gray[(y+dy)*w+x+dx];sum+=v;sum2+=v*v;corr+=v*template[n++];}const e=sum2-sum*sum/n;return e>100?corr/Math.sqrt(energy*e):-1;};\n    const left=Math.max(patch,Math.round(predicted.x)-radius),right=Math.min(w-patch-1,Math.round(predicted.x)+radius),top=Math.max(patch,Math.round(predicted.y)-radius),bottom=Math.min(h-patch-1,Math.round(predicted.y)+radius);\n    const scores=[];let best={score:-1};\n    for(let y=top;y<=bottom;y+=step)for(let x=left;x<=right;x+=step){const score=scoreAt(x,y);scores.push({x,y,score});if(score>best.score)best={x,y,score};}\n    if(best.score<.7)continue;\n    const coarse=best;\n    for(let y=Math.max(patch,coarse.y-2);y<=Math.min(h-patch-1,coarse.y+2);y++)for(let x=Math.max(patch,coarse.x-2);x<=Math.min(w-patch-1,coarse.x+2);x++){const score=scoreAt(x,y);if(score>best.score)best={x,y,score};}\n    let second=-1;for(const s of scores)if((s.x-best.x)**2+(s.y-best.y)**2>8**2)second=Math.max(second,s.score);\n    if(best.score<.84||best.score-second<.07)continue;\n    matches.push({a:cameraRay(best.x,best.y,w,h,frame.hfov),b:ray,x:best.x,y:best.y,score:best.score});\n  }\n  return matches;\n}\nfunction triad(a,b){const u=regUnit(a),cross=regUnit(regCross(a,b));if(!cross||Math.abs(regDot(a,b))>.998)return null;return [u,regCross(cross,u),cross];}\nfunction rotationPair(p,q){const A=triad(p.a,q.a),B=triad(p.b,q.b);if(!A||!B)return null;return [0,1,2].map(i=>[0,1,2].map(j=>B[0][i]*A[0][j]+B[1][i]*A[1][j]+B[2][i]*A[2][j]));}\nfunction solve3(A,b){const M=A.map((row,i)=>[...row,b[i]]);for(let j=0;j<3;j++){let p=j;for(let i=j+1;i<3;i++)if(Math.abs(M[i][j])>Math.abs(M[p][j]))p=i;[M[p],M[j]]=[M[j],M[p]];if(Math.abs(M[j][j])<1e-8)return null;const d=M[j][j];for(let k=j;k<4;k++)M[j][k]/=d;for(let i=0;i<3;i++)if(i!==j){const c=M[i][j];for(let k=j;k<4;k++)M[i][k]-=c*M[j][k];}}return M.map(row=>row[3]);}\nfunction rotateVector(v,axis){const theta=Math.hypot(...axis);if(theta<1e-10)return v;const k=axis.map(x=>x/theta),c=Math.cos(theta),s=Math.sin(theta),cross=regCross(k,v),d=regDot(k,v);return v.map((x,i)=>x*c+cross[i]*s+k[i]*d*(1-c));}\nfunction refineRotation(R,matches){\n  for(let iter=0;iter<6;iter++){\n    const A=Array.from({length:3},()=>[0,0,0]),b=[0,0,0];\n    for(const m of matches){const q=regApply(R,m.a),v=regCross(q,m.b);for(let i=0;i<3;i++){b[i]+=v[i];for(let j=0;j<3;j++)A[i][j]+=(i===j?1:0)-q[i]*q[j];}}\n    const delta=solve3(A,b);if(!delta||Math.hypot(...delta)<1e-9)break;\n    const columns=[0,1,2].map(j=>rotateVector(R.map(row=>row[j]),delta));R=[0,1,2].map(i=>columns.map(c=>c[i]));\n  }return R;\n}\nfunction fitRegistration(matches,prior,width,height){\n  // Deduplicate source locations before counting support, including repeated references.\n  matches=matches.sort((a,b)=>b.score-a.score).filter((m,i,list)=>list.slice(0,i).every(p=>(p.x-m.x)**2+(p.y-m.y)**2>5**2));\n  if(matches.length<14)return {accepted:false,reason:'not-enough-matches',matches:matches.length};\n  const threshold=Math.cos(.8*Math.PI/180);let best=[],bestR=null,seed=1847;\n  const random=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};\n  for(let i=0;i<200;i++){\n    const a=random(matches.length),b=random(matches.length);if(a===b)continue;const R=rotationPair(matches[a],matches[b]);if(!R)continue;\n    const inliers=matches.filter(m=>regDot(regApply(R,m.a),m.b)>threshold);if(inliers.length>best.length){best=inliers;bestR=R;}\n  }\n  if(best.length<14||best.length/matches.length<.55)return {accepted:false,reason:'inconsistent-matches',matches:matches.length,inliers:best.length};\n  bestR=refineRotation(bestR,best);best=matches.filter(m=>regDot(regApply(bestR,m.a),m.b)>threshold);\n  const cells=new Set(best.map(m=>Math.floor(m.x/width*4)+','+Math.floor(m.y/height*3)));\n  const spanX=Math.max(...best.map(m=>m.x))-Math.min(...best.map(m=>m.x)),spanY=Math.max(...best.map(m=>m.y))-Math.min(...best.map(m=>m.y));\n  if(best.length<14||cells.size<4||spanX<width*.12||spanY<height*.18)return {accepted:false,reason:'poor-coverage',matches:matches.length,inliers:best.length};\n  const basis={right:bestR.map(row=>row[0]),up:bestR.map(row=>row[1]),forward:bestR.map(row=>-row[2])};\n  const deg=v=>Math.acos(Math.max(-1,Math.min(1,v)))*180/Math.PI;\n  const correction=Math.max(deg(regDot(prior.forward,basis.forward)),deg(regDot(prior.up,basis.up)));\n  const error=Math.sqrt(best.reduce((sum,m)=>sum+deg(regDot(regApply(bestR,m.a),m.b))**2,0)/best.length);\n  if(correction>12||error>.55)return {accepted:false,reason:'excessive-correction',matches:matches.length,inliers:best.length,error};\n  return {accepted:true,basis,inliers:best.length,matches:matches.length,error,correction};\n}\nclass ImageRegistrar {\n  constructor(){this.references=[];}\n  register(data,w,h,basis,hfov,skip=false){\n    const frame=registrationFrame(data,w,h,basis,hfov);\n    const candidates=this.references.map(ref=>({ref,overlap:regDot(ref.basis.forward,basis.forward)})).filter(x=>x.overlap>.42).sort((a,b)=>b.overlap-a.overlap).slice(0,3);\n    const matches=skip?[]:candidates.flatMap(({ref})=>matchFrames(frame,ref));\n    const result=skip?{accepted:false,reason:'stored-pose'}:fitRegistration(matches,basis,frame.width,frame.height);\n    if(!this.references.length)result.reason='first-photo';\n    if(result.accepted)frame.basis=result.basis;\n    this.references.push(frame);return {...result,basis:frame.basis};\n  }\n}\n\n// High-resolution spherical preview. Select one source per pixel instead of\n// averaging misaligned photos. This prevents blending ghosts, but seams remain\n// possible when image registration or the camera-centre assumption is imperfect.\nclass Mosaic {\n  constructor(width=4096,height=2048){\n    this.width=width;this.height=height;this.data=new Uint8ClampedArray(width*height*4);this.score=new Float32Array(width*height);\n    this.sx=Float32Array.from({length:width},(_,x)=>Math.sin(((x+.5)/width-.5)*Math.PI*2));\n    this.cx=Float32Array.from({length:width},(_,x)=>Math.cos(((x+.5)/width-.5)*Math.PI*2));\n    this.sp=Float32Array.from({length:height},(_,y)=>Math.sin((.5-(y+.5)/height)*Math.PI));\n    this.cp=Float32Array.from({length:height},(_,y)=>Math.cos((.5-(y+.5)/height)*Math.PI));\n  }\n  add(data,iw,ih,basis,hfov){\n    const tx=Math.tan(hfov*Math.PI/360),ty=tx*ih/iw,{right:r,up:u,forward:f}=basis;\n    const halfDiagonal=Math.atan(Math.hypot(tx,ty)),latitude=Math.asin(Math.max(-1,Math.min(1,f[2])));\n    const y0=Math.max(0,Math.floor((.5-(latitude+halfDiagonal)/Math.PI)*this.height)-1),y1=Math.min(this.height,Math.ceil((.5-(latitude-halfDiagonal)/Math.PI)*this.height)+1);\n    for(let row=y0;row<y1;row++){\n      const cp=this.cp[row],z=this.sp[row];\n      for(let col=0;col<this.width;col++){\n        const x=this.sx[col]*cp,y=this.cx[col]*cp,depth=x*f[0]+y*f[1]+z*f[2];if(depth<=0)continue;\n        const nx=(x*r[0]+y*r[1]+z*r[2])/(depth*tx),ny=(x*u[0]+y*u[1]+z*u[2])/(depth*ty);\n        if(Math.abs(nx)>=1||Math.abs(ny)>=1)continue;\n        const pixel=row*this.width+col,weight=depth**4*Math.min(1,(1-Math.abs(nx))*8,(1-Math.abs(ny))*8);\n        if(weight<=this.score[pixel]+1e-7)continue;this.score[pixel]=weight;\n        const px=(nx+1)*.5*(iw-1),py=(1-ny)*.5*(ih-1),ix=Math.floor(px),iy=Math.floor(py),dx=px-ix,dy=py-iy;\n        const k=(iy*iw+ix)*4,kx=(iy*iw+Math.min(ix+1,iw-1))*4,ky=(Math.min(iy+1,ih-1)*iw+ix)*4,kxy=(Math.min(iy+1,ih-1)*iw+Math.min(ix+1,iw-1))*4,j=pixel*4;\n        for(let c=0;c<3;c++)this.data[j+c]=(data[k+c]*(1-dx)+data[kx+c]*dx)*(1-dy)+(data[ky+c]*(1-dx)+data[kxy+c]*dx)*dy;\n        this.data[j+3]=255;\n      }\n    }\n  }\n  pixels(){return this.data.slice();}\n}\n\nlet mosaic,registrar;\nself.onmessage=({data:m})=>{\n  try{\n    if(m.type==='reset'){mosaic=new Mosaic(m.width,m.height);registrar=new ImageRegistrar();return;}\n    if(m.type==='add'){\n      const registration=registrar.register(m.data,m.width,m.height,m.basis,m.hfov,!!m.skipRegistration);\n      mosaic.add(m.data,m.width,m.height,registration.basis,m.hfov);\n      const pixels=mosaic.pixels();self.postMessage({id:m.id,pixels,registration},[pixels.buffer]);\n    }\n  }catch(e){self.postMessage({id:m.id,error:e.message});}\n};\n";
 // W3C Device Orientation: intrinsic Rz(alpha) Rx(beta) Ry(gamma).
 // World axes: x=right/east, y=forward/north, z=up. Rear camera looks along -device Z.
 const D = Math.PI / 180;
@@ -111,42 +112,190 @@ class HoldGate {
   }
 }
 
-// Incremental equirectangular reprojection, not feature-based stitching.
-// Pixels are placed from their capture-time basis and estimated focal angle.
+// Conservative image registration with a sensor prior.
+// Harris corners, perspective-warped NCC patches and robust 3D rotation fitting.
+// Assumes a fixed camera centre and approximate focal length. No translation/SLAM.
+const regDot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const regCross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const regUnit=a=>{const n=Math.hypot(...a);return n>1e-9?a.map(v=>v/n):null;};
+const regApply=(R,v)=>R.map(row=>regDot(row,v));
+function cameraRay(x,y,w,h,hfov){const f=w/(2*Math.tan(hfov*Math.PI/360));return regUnit([(x-(w-1)/2)/f,((h-1)/2-y)/f,-1]);}
+function worldRay(v,b){return v.map((_,i)=>b.right[i]*v[0]+b.up[i]*v[1]-b.forward[i]*v[2]);}
+function imagePoint(v,b,w,h,hfov){const depth=regDot(v,b.forward);if(depth<.05)return null;const f=w/(2*Math.tan(hfov*Math.PI/360));return {x:(w-1)/2+f*regDot(v,b.right)/depth,y:(h-1)/2-f*regDot(v,b.up)/depth};}
+function sample(g,w,h,x,y){if(x<0||y<0||x>=w-1||y>=h-1)return NaN;const ix=Math.floor(x),iy=Math.floor(y),dx=x-ix,dy=y-iy,i=iy*w+ix;return (g[i]*(1-dx)+g[i+1]*dx)*(1-dy)+(g[i+w]*(1-dx)+g[i+w+1]*dx)*dy;}
+function registrationFrame(data,w,h,basis,hfov){
+  const width=Math.min(384,w),height=Math.round(width*h/w),g=new Float32Array(width*height);
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const sx=Math.min(w-1,Math.round((x+.5)*w/width-.5)),sy=Math.min(h-1,Math.round((y+.5)*h/height-.5)),i=(sy*w+sx)*4;
+    g[y*width+x]=(data[i]*.299+data[i+1]*.587+data[i+2]*.114);
+  }
+  // 3x3 low-pass before corner selection / patch correlation.
+  const gray=g.slice();for(let y=1;y<height-1;y++)for(let x=1;x<width-1;x++){const i=y*width+x;gray[i]=(g[i]*4+(g[i-1]+g[i+1]+g[i-width]+g[i+width])*2+g[i-width-1]+g[i-width+1]+g[i+width-1]+g[i+width+1])/16;}
+  const candidates=[];
+  for(let y=8;y<height-8;y+=3)for(let x=8;x<width-8;x+=3){
+    let xx=0,yy=0,xy=0;
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const i=(y+dy)*width+x+dx,gx=gray[i+1]-gray[i-1],gy=gray[i+width]-gray[i-width];xx+=gx*gx;yy+=gy*gy;xy+=gx*gy;}
+    const score=xx*yy-xy*xy-.05*(xx+yy)**2;if(score>2e5)candidates.push({x,y,score});
+  }
+  candidates.sort((a,b)=>b.score-a.score);const features=[];
+  for(const p of candidates){if(features.every(q=>(p.x-q.x)**2+(p.y-q.y)**2>11**2)){features.push(p);if(features.length===220)break;}}
+  return {gray,width,height,basis,hfov,features};
+}
+function matchFrames(frame,ref){
+  const matches=[],patch=4,radius=40,step=2,w=frame.width,h=frame.height;
+  for(const key of ref.features){
+    const ray=worldRay(cameraRay(key.x,key.y,ref.width,ref.height,ref.hfov),ref.basis);
+    const predicted=imagePoint(ray,frame.basis,w,h,frame.hfov);
+    if(!predicted||predicted.x<patch-radius||predicted.x>w-patch+radius||predicted.y<patch-radius||predicted.y>h-patch+radius)continue;
+    const template=[];let mean=0,valid=true;
+    for(let dy=-patch;dy<=patch;dy++)for(let dx=-patch;dx<=patch;dx++){
+      const wr=worldRay(cameraRay(predicted.x+dx,predicted.y+dy,w,h,frame.hfov),frame.basis),q=imagePoint(wr,ref.basis,ref.width,ref.height,ref.hfov);
+      const value=q?sample(ref.gray,ref.width,ref.height,q.x,q.y):NaN;
+      if(!Number.isFinite(value))valid=false;template.push(value);mean+=value;
+    }
+    if(!valid)continue;mean/=template.length;let energy=0;for(let i=0;i<template.length;i++){template[i]-=mean;energy+=template[i]**2;}if(energy<800)continue;
+    const scoreAt=(x,y)=>{let sum=0,sum2=0,corr=0,n=0;for(let dy=-patch;dy<=patch;dy++)for(let dx=-patch;dx<=patch;dx++){const v=frame.gray[(y+dy)*w+x+dx];sum+=v;sum2+=v*v;corr+=v*template[n++];}const e=sum2-sum*sum/n;return e>100?corr/Math.sqrt(energy*e):-1;};
+    const left=Math.max(patch,Math.round(predicted.x)-radius),right=Math.min(w-patch-1,Math.round(predicted.x)+radius),top=Math.max(patch,Math.round(predicted.y)-radius),bottom=Math.min(h-patch-1,Math.round(predicted.y)+radius);
+    const scores=[];let best={score:-1};
+    for(let y=top;y<=bottom;y+=step)for(let x=left;x<=right;x+=step){const score=scoreAt(x,y);scores.push({x,y,score});if(score>best.score)best={x,y,score};}
+    if(best.score<.7)continue;
+    const coarse=best;
+    for(let y=Math.max(patch,coarse.y-2);y<=Math.min(h-patch-1,coarse.y+2);y++)for(let x=Math.max(patch,coarse.x-2);x<=Math.min(w-patch-1,coarse.x+2);x++){const score=scoreAt(x,y);if(score>best.score)best={x,y,score};}
+    let second=-1;for(const s of scores)if((s.x-best.x)**2+(s.y-best.y)**2>8**2)second=Math.max(second,s.score);
+    if(best.score<.84||best.score-second<.07)continue;
+    matches.push({a:cameraRay(best.x,best.y,w,h,frame.hfov),b:ray,x:best.x,y:best.y,score:best.score});
+  }
+  return matches;
+}
+function triad(a,b){const u=regUnit(a),cross=regUnit(regCross(a,b));if(!cross||Math.abs(regDot(a,b))>.998)return null;return [u,regCross(cross,u),cross];}
+function rotationPair(p,q){const A=triad(p.a,q.a),B=triad(p.b,q.b);if(!A||!B)return null;return [0,1,2].map(i=>[0,1,2].map(j=>B[0][i]*A[0][j]+B[1][i]*A[1][j]+B[2][i]*A[2][j]));}
+function solve3(A,b){const M=A.map((row,i)=>[...row,b[i]]);for(let j=0;j<3;j++){let p=j;for(let i=j+1;i<3;i++)if(Math.abs(M[i][j])>Math.abs(M[p][j]))p=i;[M[p],M[j]]=[M[j],M[p]];if(Math.abs(M[j][j])<1e-8)return null;const d=M[j][j];for(let k=j;k<4;k++)M[j][k]/=d;for(let i=0;i<3;i++)if(i!==j){const c=M[i][j];for(let k=j;k<4;k++)M[i][k]-=c*M[j][k];}}return M.map(row=>row[3]);}
+function rotateVector(v,axis){const theta=Math.hypot(...axis);if(theta<1e-10)return v;const k=axis.map(x=>x/theta),c=Math.cos(theta),s=Math.sin(theta),cross=regCross(k,v),d=regDot(k,v);return v.map((x,i)=>x*c+cross[i]*s+k[i]*d*(1-c));}
+function refineRotation(R,matches){
+  for(let iter=0;iter<6;iter++){
+    const A=Array.from({length:3},()=>[0,0,0]),b=[0,0,0];
+    for(const m of matches){const q=regApply(R,m.a),v=regCross(q,m.b);for(let i=0;i<3;i++){b[i]+=v[i];for(let j=0;j<3;j++)A[i][j]+=(i===j?1:0)-q[i]*q[j];}}
+    const delta=solve3(A,b);if(!delta||Math.hypot(...delta)<1e-9)break;
+    const columns=[0,1,2].map(j=>rotateVector(R.map(row=>row[j]),delta));R=[0,1,2].map(i=>columns.map(c=>c[i]));
+  }return R;
+}
+function fitRegistration(matches,prior,width,height){
+  // Deduplicate source locations before counting support, including repeated references.
+  matches=matches.sort((a,b)=>b.score-a.score).filter((m,i,list)=>list.slice(0,i).every(p=>(p.x-m.x)**2+(p.y-m.y)**2>5**2));
+  if(matches.length<14)return {accepted:false,reason:'not-enough-matches',matches:matches.length};
+  const threshold=Math.cos(.8*Math.PI/180);let best=[],bestR=null,seed=1847;
+  const random=n=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%n;};
+  for(let i=0;i<200;i++){
+    const a=random(matches.length),b=random(matches.length);if(a===b)continue;const R=rotationPair(matches[a],matches[b]);if(!R)continue;
+    const inliers=matches.filter(m=>regDot(regApply(R,m.a),m.b)>threshold);if(inliers.length>best.length){best=inliers;bestR=R;}
+  }
+  if(best.length<14||best.length/matches.length<.55)return {accepted:false,reason:'inconsistent-matches',matches:matches.length,inliers:best.length};
+  bestR=refineRotation(bestR,best);best=matches.filter(m=>regDot(regApply(bestR,m.a),m.b)>threshold);
+  const cells=new Set(best.map(m=>Math.floor(m.x/width*4)+','+Math.floor(m.y/height*3)));
+  const spanX=Math.max(...best.map(m=>m.x))-Math.min(...best.map(m=>m.x)),spanY=Math.max(...best.map(m=>m.y))-Math.min(...best.map(m=>m.y));
+  if(best.length<14||cells.size<4||spanX<width*.12||spanY<height*.18)return {accepted:false,reason:'poor-coverage',matches:matches.length,inliers:best.length};
+  const basis={right:bestR.map(row=>row[0]),up:bestR.map(row=>row[1]),forward:bestR.map(row=>-row[2])};
+  const deg=v=>Math.acos(Math.max(-1,Math.min(1,v)))*180/Math.PI;
+  const correction=Math.max(deg(regDot(prior.forward,basis.forward)),deg(regDot(prior.up,basis.up)));
+  const error=Math.sqrt(best.reduce((sum,m)=>sum+deg(regDot(regApply(bestR,m.a),m.b))**2,0)/best.length);
+  if(correction>12||error>.55)return {accepted:false,reason:'excessive-correction',matches:matches.length,inliers:best.length,error};
+  return {accepted:true,basis,inliers:best.length,matches:matches.length,error,correction};
+}
+class ImageRegistrar {
+  constructor(){this.references=[];}
+  register(data,w,h,basis,hfov,skip=false){
+    const frame=registrationFrame(data,w,h,basis,hfov);
+    const candidates=this.references.map(ref=>({ref,overlap:regDot(ref.basis.forward,basis.forward)})).filter(x=>x.overlap>.42).sort((a,b)=>b.overlap-a.overlap).slice(0,3);
+    const matches=skip?[]:candidates.flatMap(({ref})=>matchFrames(frame,ref));
+    const result=skip?{accepted:false,reason:'stored-pose'}:fitRegistration(matches,basis,frame.width,frame.height);
+    if(!this.references.length)result.reason='first-photo';
+    if(result.accepted)frame.basis=result.basis;
+    this.references.push(frame);return {...result,basis:frame.basis};
+  }
+}
+
+// High-resolution spherical preview. Select one source per pixel instead of
+// averaging misaligned photos. This prevents blending ghosts, but seams remain
+// possible when image registration or the camera-centre assumption is imperfect.
 class Mosaic {
-  constructor(width=1536,height=768){
-    this.width=width;this.height=height;
-    this.sum=new Float32Array(width*height*4);
-    this.rays=new Float32Array(width*height*3);
-    for(let y=0;y<height;y++){
-      const p=(.5-(y+.5)/height)*Math.PI,cp=Math.cos(p);
-      for(let x=0;x<width;x++){
-        const a=((x+.5)/width-.5)*Math.PI*2,i=(y*width+x)*3;
-        this.rays[i]=Math.sin(a)*cp;this.rays[i+1]=Math.cos(a)*cp;this.rays[i+2]=Math.sin(p);
+  constructor(width=4096,height=2048){
+    this.width=width;this.height=height;this.data=new Uint8ClampedArray(width*height*4);this.score=new Float32Array(width*height);
+    this.sx=Float32Array.from({length:width},(_,x)=>Math.sin(((x+.5)/width-.5)*Math.PI*2));
+    this.cx=Float32Array.from({length:width},(_,x)=>Math.cos(((x+.5)/width-.5)*Math.PI*2));
+    this.sp=Float32Array.from({length:height},(_,y)=>Math.sin((.5-(y+.5)/height)*Math.PI));
+    this.cp=Float32Array.from({length:height},(_,y)=>Math.cos((.5-(y+.5)/height)*Math.PI));
+  }
+  add(data,iw,ih,basis,hfov){
+    const tx=Math.tan(hfov*Math.PI/360),ty=tx*ih/iw,{right:r,up:u,forward:f}=basis;
+    const halfDiagonal=Math.atan(Math.hypot(tx,ty)),latitude=Math.asin(Math.max(-1,Math.min(1,f[2])));
+    const y0=Math.max(0,Math.floor((.5-(latitude+halfDiagonal)/Math.PI)*this.height)-1),y1=Math.min(this.height,Math.ceil((.5-(latitude-halfDiagonal)/Math.PI)*this.height)+1);
+    for(let row=y0;row<y1;row++){
+      const cp=this.cp[row],z=this.sp[row];
+      for(let col=0;col<this.width;col++){
+        const x=this.sx[col]*cp,y=this.cx[col]*cp,depth=x*f[0]+y*f[1]+z*f[2];if(depth<=0)continue;
+        const nx=(x*r[0]+y*r[1]+z*r[2])/(depth*tx),ny=(x*u[0]+y*u[1]+z*u[2])/(depth*ty);
+        if(Math.abs(nx)>=1||Math.abs(ny)>=1)continue;
+        const pixel=row*this.width+col,weight=depth**4*Math.min(1,(1-Math.abs(nx))*8,(1-Math.abs(ny))*8);
+        if(weight<=this.score[pixel]+1e-7)continue;this.score[pixel]=weight;
+        const px=(nx+1)*.5*(iw-1),py=(1-ny)*.5*(ih-1),ix=Math.floor(px),iy=Math.floor(py),dx=px-ix,dy=py-iy;
+        const k=(iy*iw+ix)*4,kx=(iy*iw+Math.min(ix+1,iw-1))*4,ky=(Math.min(iy+1,ih-1)*iw+ix)*4,kxy=(Math.min(iy+1,ih-1)*iw+Math.min(ix+1,iw-1))*4,j=pixel*4;
+        for(let c=0;c<3;c++)this.data[j+c]=(data[k+c]*(1-dx)+data[kx+c]*dx)*(1-dy)+(data[ky+c]*(1-dx)+data[kxy+c]*dx)*dy;
+        this.data[j+3]=255;
       }
     }
   }
-  add(data,iw,ih,basis,hfov){
-    const tx=Math.tan(hfov*Math.PI/360),ty=tx*ih/iw;
-    const {right:r,up:u,forward:f}=basis;
-    const rays=this.rays,sum=this.sum;
-    for(let i=0,j=0;i<sum.length;i+=4,j+=3){
-      const x=rays[j],y=rays[j+1],z=rays[j+2],depth=x*f[0]+y*f[1]+z*f[2];
-      if(depth<=0)continue;
-      const nx=(x*r[0]+y*r[1]+z*r[2])/(depth*tx),ny=(x*u[0]+y*u[1]+z*u[2])/(depth*ty);
-      if(Math.abs(nx)>=1||Math.abs(ny)>=1)continue;
-      const px=(nx+1)*.5*(iw-1),py=(1-ny)*.5*(ih-1),ix=Math.floor(px),iy=Math.floor(py),dx=px-ix,dy=py-iy;
-      const k=(iy*iw+ix)*4,kx=Math.min(ix+1,iw-1)*4+iy*iw*4,ky=(Math.min(iy+1,ih-1)*iw+ix)*4,kxy=(Math.min(iy+1,ih-1)*iw+Math.min(ix+1,iw-1))*4;
-      const weight=Math.max(.005,Math.min(1,(1-Math.abs(nx))*5,(1-Math.abs(ny))*5));
-      for(let c=0;c<3;c++)sum[i+c]+=weight*((data[k+c]*(1-dx)+data[kx+c]*dx)*(1-dy)+(data[ky+c]*(1-dx)+data[kxy+c]*dx)*dy);
-      sum[i+3]+=weight;
-    }
+  pixels(){return this.data.slice();}
+}
+
+// One session per site origin, written transactionally after every capture.
+// Browser storage can still be evicted or cleared; export remains the durable copy.
+class SessionStore {
+  constructor(indexedDB=globalThis.indexedDB){
+    this.ready=new Promise((resolve,reject)=>{
+      if(!indexedDB){reject(Error('Sauvegarde indisponible dans ce navigateur.'));return;}
+      const request=indexedDB.open('hdri-atelier-sessions',1);
+      request.onupgradeneeded=()=>request.result.createObjectStore('records',{keyPath:'key'});
+      request.onsuccess=()=>{const db=request.result;db.onversionchange=()=>db.close();resolve(db);};
+      request.onerror=()=>reject(request.error||Error('Sauvegarde inaccessible.'));
+      request.onblocked=()=>reject(Error('Ferme les autres onglets HDRI Atelier, puis réessaie.'));
+    });
+    this.ready.catch(()=>{});
   }
-  pixels(){
-    const data=new Uint8ClampedArray(this.width*this.height*4);
-    for(let i=0;i<data.length;i+=4){const w=this.sum[i+3];if(w){data[i]=this.sum[i]/w;data[i+1]=this.sum[i+1]/w;data[i+2]=this.sum[i+2]/w;data[i+3]=255;}}
-    return data;
+  async transaction(mode,action){
+    const db=await this.ready;
+    return new Promise((resolve,reject)=>{const tx=db.transaction('records',mode);let result;try{result=action(tx.objectStore('records'));}catch(e){tx.abort();reject(e);return;}
+      tx.oncomplete=()=>resolve(result?.result);tx.onerror=tx.onabort=()=>reject(tx.error||Error('Sauvegarde interrompue.'));});
   }
+  async save(id,capture,meta){
+    const {url,...record}=capture;
+    await this.transaction('readwrite',store=>{store.put({key:'shot:'+id,id,capture:record});store.put({key:'meta',meta});});
+  }
+  async read(){const rows=await this.transaction('readonly',store=>store.getAll());const meta=rows.find(row=>row.key==='meta')?.meta;
+    const shots=rows.filter(row=>row.key.startsWith('shot:')&&Number.isInteger(row.id)&&row.id>=0&&row.id<54&&row.capture?.blob instanceof Blob&&row.capture?.basis).sort((a,b)=>a.id-b.id);
+    return meta&&shots.length?{meta,shots}:null;
+  }
+  async clear(){await this.transaction('readwrite',store=>store.clear());}
+}
+
+// Relative sharpness only: texture, noise and exposure also affect this score.
+function frameSharpness(rgba,width,height){
+  const gray=new Float32Array(width*height);
+  for(let i=0;i<gray.length;i++)gray[i]=.299*rgba[i*4]+.587*rgba[i*4+1]+.114*rgba[i*4+2];
+  let sum=0,square=0,n=0;
+  for(let y=Math.max(1,Math.floor(height*.1));y<Math.min(height-1,height*.9);y++)for(let x=Math.max(1,Math.floor(width*.1));x<Math.min(width-1,width*.9);x++){
+    const i=y*width+x,v=4*gray[i]-gray[i-1]-gray[i+1]-gray[i-width]-gray[i+width];sum+=v;square+=v*v;n++;
+  }
+  return n?Math.max(0,square/n-(sum/n)**2):0;
+}
+async function selectVideoFrame(snapshot,valid,wait,count=3){
+  let best=null;
+  for(let i=0;i<count;i++){
+    if(i)await wait();
+    if(!valid())throw Error('Mouvement ou interruption pendant la prise. Réaligne la cible et réessaie.');
+    const candidate=snapshot();
+    if(!best||candidate.score>best.score)best=candidate;
+  }
+  return best;
 }
 
 class SphereViewer {
@@ -193,10 +342,15 @@ async function createZip(entries){
 
 
 
+
+
+
 const $=id=>document.getElementById(id),targets=makeTargets(),captures=new Map(),gate=new HoldGate(1100);
-const atlas=document.createElement('canvas');atlas.width=1536;atlas.height=768;
+const atlas=document.createElement('canvas');atlas.width=4096;atlas.height=2048;
 const atlasCtx=atlas.getContext('2d');
-const state={stream:null,raw:null,base:null,index:0,busy:false,paused:false,complete:false,demo:false,recal:false,modal:true,hfov:64,aspect:4/3,lastOrientation:-Infinity,lastMotion:-Infinity,speed:Infinity,motionSpeed:Infinity,signalAfterResume:0,epoch:0,zip:null,exported:false};
+const state={stream:null,raw:null,base:null,index:0,busy:false,paused:false,complete:false,demo:false,recal:false,modal:true,hfov:64,aspect:4/3,lastOrientation:-Infinity,lastMotion:-Infinity,speed:Infinity,motionSpeed:Infinity,signalAfterResume:0,epoch:0,zip:null,exported:false,storageOK:true,restoring:true,needsRecal:false};
+const sessionStore=new SessionStore();
+let localRegistrar=new ImageRegistrar();
 let sphere=null,reviewSphere=null,demoViewer=null,worker=null,mosaic=null,frame=0,toastTimer,requestId=0;
 const pending=new Map();
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,5000);}
@@ -221,19 +375,45 @@ try{sphere=new SphereViewer($('sphere'));}catch(e){$('sphere').hidden=true;}
 try{
   const url=URL.createObjectURL(new Blob([WORKER_SOURCE],{type:'text/javascript'}));
   worker=new Worker(url);URL.revokeObjectURL(url);
-  worker.onmessage=({data})=>{const p=pending.get(data.id);if(!p)return;pending.delete(data.id);if(data.error)p.reject(Error(data.error));else p.resolve(data.pixels);};
+  worker.onmessage=({data})=>{const p=pending.get(data.id);if(!p)return;pending.delete(data.id);if(data.error)p.reject(Error(data.error));else p.resolve(data);};
   worker.onerror=()=>{for(const p of pending.values())p.reject(Error('Aperçu indisponible. Les photos restent exportables.'));pending.clear();};
 }catch(e){mosaic=new Mosaic(atlas.width,atlas.height);}
-function resetMosaic(){atlasCtx.clearRect(0,0,atlas.width,atlas.height);if(worker)worker.postMessage({type:'reset',width:atlas.width,height:atlas.height});else mosaic=new Mosaic(atlas.width,atlas.height);updateTexture();}
+function resetMosaic(){localRegistrar=new ImageRegistrar();atlasCtx.clearRect(0,0,atlas.width,atlas.height);if(worker)worker.postMessage({type:'reset',width:atlas.width,height:atlas.height});else mosaic=new Mosaic(atlas.width,atlas.height);updateTexture();}
 resetMosaic();
-async function addToMosaic(capture){
-  const source=await loadImage(capture.blob),small=document.createElement('canvas');small.width=720;small.height=Math.round(720/capture.aspect);const ctx=small.getContext('2d',{willReadFrequently:true});ctx.drawImage(source,0,0,small.width,small.height);
+async function addToMosaic(capture,skipRegistration=false){
+  const source=await loadImage(capture.blob),small=document.createElement('canvas');small.width=Math.min(1600,capture.width);small.height=Math.round(small.width/capture.aspect);const ctx=small.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,small.width,small.height);
   const data=ctx.getImageData(0,0,small.width,small.height).data,epoch=state.epoch;
-  let pixels;
-  if(worker){const id=++requestId;pixels=await new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});worker.postMessage({type:'add',id,data,width:small.width,height:small.height,basis:capture.basis,hfov:capture.hfov});});}
-  else{await new Promise(resolve=>setTimeout(resolve,0));mosaic.add(data,small.width,small.height,capture.basis,capture.hfov);pixels=mosaic.pixels();}
-  if(epoch===state.epoch){atlasCtx.putImageData(new ImageData(pixels,atlas.width,atlas.height),0,0);updateTexture();}
+  let result;
+  if(worker){const id=++requestId;result=await new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});worker.postMessage({type:'add',id,data,width:small.width,height:small.height,basis:capture.basis,hfov:capture.hfov,skipRegistration});});}
+  else{await new Promise(resolve=>setTimeout(resolve,0));const registration=localRegistrar.register(data,small.width,small.height,capture.basis,capture.hfov,skipRegistration);mosaic.add(data,small.width,small.height,registration.basis,capture.hfov);result={pixels:mosaic.pixels(),registration};}
+  if(epoch===state.epoch){
+    if(!skipRegistration){capture.sensorBasis=capture.basis;capture.basis=result.registration.basis;capture.registration=result.registration;}
+    atlasCtx.putImageData(new ImageData(result.pixels,atlas.width,atlas.height),0,0);updateTexture();
+  }
 }
+function savedMeta(){return {version:'3.1',base:state.base,hfov:state.hfov,demo:state.demo,updatedAt:new Date().toISOString()};}
+async function persistCapture(id,capture){
+  try{await sessionStore.save(id,capture,savedMeta());state.storageOK=true;setText('saveStatus','Photos sauvegardées sur cet appareil');}
+  catch(e){state.storageOK=false;setText('saveStatus','Sauvegarde indisponible · exporte la session');toast('Sauvegarde impossible : exporte avant de fermer la page.');}
+}
+async function restoreSession(){
+  $('start').disabled=true;$('demo').disabled=true;
+  try{
+    const saved=await sessionStore.read();
+    if(saved){
+      state.busy=true;state.base=saved.meta.base;state.hfov=saved.meta.hfov;state.demo=!!saved.meta.demo;state.needsRecal=!state.demo;
+      for(const row of saved.shots)captures.set(row.id,{...row.capture,url:URL.createObjectURL(row.capture.blob)});
+      $('fov').value=state.hfov;$('fovLabel').textContent=state.hfov+'°';
+      let i=0;for(const capture of captures.values()){$('startStatus').textContent=`Session retrouvée · reconstruction ${++i}/${captures.size}…`;await addToMosaic(capture,true);}
+      state.complete=captures.size===targets.length;state.index=nextMissing(-1);state.paused=true;
+      $('startStatus').textContent=`${captures.size} photos retrouvées. Tu peux les exporter${state.complete?' ou regarder le panorama.':' ou reprendre après recalage sur la première photo.'}`;
+      $('recoverActions').hidden=false;$('start').textContent=state.demo?'Session de démonstration':'Réactiver la caméra';
+      setText('saveStatus','Session restaurée depuis cet appareil');
+    }
+  }catch(e){state.storageOK=false;setText('saveStatus','Sauvegarde indisponible · exporte avant de quitter');}
+  finally{state.busy=false;state.restoring=false;$('start').disabled=false;$('demo').disabled=false;render();}
+}
+
 function updateTexture(){try{sphere?.upload(atlas);reviewSphere?.upload(atlas);}catch(e){toast('L’aperçu 3D est indisponible ; la carte 360° reste visible.');}drawMap();}
 function loadImage(blob){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(blob);img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Photo illisible'));};img.src=url;});}
 function canvasBlob(canvas,type='image/jpeg',quality=.95){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('Image non enregistrée')),type,quality));}
@@ -251,7 +431,7 @@ function onMotion(e){
 window.addEventListener('deviceorientation',onOrientation,{passive:true});window.addEventListener('devicemotion',onMotion,{passive:true});
 async function permission(api){if(typeof api?.requestPermission==='function'){const p=await api.requestPermission();if(p!=='granted')throw Error('Autorisation des capteurs refusée. Autorise « Mouvement et orientation » pour ce site dans Safari.');}}
 async function start(){
-  if(!landscape())return;
+  if(!landscape()||state.restoring)return;
   if(state.demo&&captures.size){$('startStatus').textContent='Exporte ou efface la démonstration avant de démarrer une vraie session.';return;}
   if(state.stream&&state.raw&&!state.demo){closeModal('introModal');return;}
   if(!window.isSecureContext){$('startStatus').textContent='Ouvre le lien GitHub Pages en HTTPS dans Safari.';return;}
@@ -276,7 +456,7 @@ async function start(){
   if(failure){$('startStatus').textContent=failure.reason?.message||'Autorisation indisponible. Réessaie dans Safari.';}
   else{
     $('introModal').hidden=true;state.modal=false;state.paused=false;$('closeIntro').hidden=false;
-    if(captures.has(0)){recalImage=await loadImage(captures.get(0).blob);state.recal=true;state.complete=false;}
+    if(captures.has(0)){state.needsRecal=false;recalImage=await loadImage(captures.get(0).blob);state.recal=true;state.complete=false;}
     if(!state.raw)toast('Bouge légèrement le téléphone pour initialiser l’orientation.');
     requestWake();
   }
@@ -302,13 +482,14 @@ function render(){
   setText('stageDetail',state.complete?'Les photos sont prêtes à exporter':`${done} / ${groups.length} vues · ${t.pitch>0?'Incline vers le haut':t.pitch<0?'Incline vers le bas':'À hauteur des yeux'}`);
   $('emptyPreview').hidden=captures.size>0;setText('previewStatus',`${captures.size} photo${captures.size>1?'s':''}`);
   $('export').disabled=!captures.size||state.busy;$('pause').disabled=state.base===null||state.busy||state.complete;$('pause').textContent=state.paused?'Reprendre':'Pause';
+  const last=[...captures.values()].at(-1);const matched=[...captures.values()].filter(c=>c.registration?.accepted).length;setText('alignmentStatus',captures.size?`${matched} vues recalées · autres raccords à vérifier`:'Recherche de repères entre les photos');
   $('fov').disabled=captures.size>0;$('recalibrate').disabled=!captures.has(0)||state.busy;$('reset').disabled=state.busy;
   $('capture').textContent=state.recal?'Valider le recalage':state.complete?'Voir le panorama':state.base===null?'Fixer le départ · Photo 1':captures.has(state.index)?`Reprendre la photo ${state.index+1}`:$('auto').checked?'Capture automatique':`Capturer la photo ${state.index+1}`;
   setText('cameraStatus',state.demo?'Démonstration · scène simulée':state.stream?'Caméra arrière · paysage':'Caméra inactive');
   drawMap();
 }
-function readiness(now){
-  const b=currentBasis();if(!landscape()||state.modal||state.busy||state.paused||(!state.stream&&!state.demo)||!b||document.hidden)return null;
+function readiness(now,allowBusy=false){
+  const b=currentBasis();if(!landscape()||state.modal||(state.busy&&!allowBusy)||state.restoring||state.needsRecal||state.paused||(!state.stream&&!state.demo)||!b||document.hidden)return null;
   const source=state.demo?$('demoView'):$('video');if(!state.demo&&(!source.videoWidth||source.readyState<2||state.aspect<1))return null;
   if(signalTime()<state.signalAfterResume&&!state.demo)return null;
   const target=(state.base===null||state.recal)?{ray:basisFromView(angles(b).yaw,state.recal?angles(captures.get(0).basis).pitch:0).forward,pitch:0}:targets[state.index];
@@ -316,22 +497,33 @@ function readiness(now){
 }
 async function take(){
   const ready=readiness(performance.now());if(!ready||!ready.aligned||!ready.level||!ready.stable||!ready.fresh||state.complete)return;
-  if(state.recal){state.base=angles(state.raw).yaw-angles(captures.get(0).basis).yaw;state.recal=false;state.complete=captures.size===targets.length;state.paused=state.complete;gate.reset();toast('Orientation recalée.');render();return;}
+  if(state.recal){state.base=angles(state.raw).yaw-angles((captures.get(0).sensorBasis||captures.get(0).basis)).yaw;state.recal=false;state.complete=captures.size===targets.length;state.paused=state.complete;gate.reset();toast('Orientation recalée.');render();return;}
   state.busy=true;gate.reset();const id=state.base===null?0:state.index,epoch=state.epoch;
-  const heading=state.base===null?angles(state.raw).yaw:state.base;
-  const basis=rebase(structuredClone(state.raw),heading),recordedAt=new Date().toISOString(),hfov=state.hfov;
+  const hfov=state.hfov;
   let saved=false;
   try{
-    const source=state.demo?$('demoView'):$('video'),c=document.createElement('canvas');
-    if(state.demo){demoViewer.draw(state.raw,state.hfov,false);c.width=source.width;c.height=source.height;}else{c.width=source.videoWidth;c.height=source.videoHeight;}
-    // Freeze the actual video pixels and pose before the asynchronous JPEG encoding.
-    c.getContext('2d').drawImage(source,0,0,c.width,c.height);
+    const source=state.demo?$('demoView'):$('video');
+    const probe=document.createElement('canvas');probe.width=320;probe.height=240;
+    const probeCtx=probe.getContext('2d',{willReadFrequently:true});
+    const chosen=await selectVideoFrame(()=>{
+      const c=document.createElement('canvas');
+      if(state.demo){demoViewer.draw(state.raw,state.hfov,false);c.width=source.width;c.height=source.height;}
+      else{c.width=source.videoWidth;c.height=source.videoHeight;}
+      c.getContext('2d').drawImage(source,0,0,c.width,c.height);
+      const raw=structuredClone(state.raw),recordedAt=new Date().toISOString();
+      probe.height=Math.round(probe.width*c.height/c.width);
+      probeCtx.drawImage(c,0,0,probe.width,probe.height);
+      return {canvas:c,raw,recordedAt,score:frameSharpness(probeCtx.getImageData(0,0,probe.width,probe.height).data,probe.width,probe.height)};
+    },()=>{const r=readiness(performance.now(),true);return epoch===state.epoch&&r?.aligned&&r.level&&r.stable&&r.fresh;},()=>new Promise(resolve=>setTimeout(resolve,110)),state.demo?1:3);
+    const c=chosen.canvas,heading=state.base===null?angles(chosen.raw).yaw:state.base;
+    const basis=rebase(chosen.raw,heading),recordedAt=chosen.recordedAt;
     const blob=await canvasBlob(c);if(epoch!==state.epoch)return;
-    const old=captures.get(id),capture={blob,url:URL.createObjectURL(blob),basis,hfov,aspect:c.width/c.height,width:c.width,height:c.height,recordedAt};
+    const old=captures.get(id),capture={blob,url:URL.createObjectURL(blob),basis,hfov,aspect:c.width/c.height,width:c.width,height:c.height,recordedAt,sharpnessScore:chosen.score,frameSelection:state.demo?'single':'best-of-3'};
     if(old)URL.revokeObjectURL(old.url);captures.set(id,capture);saved=true;state.base=heading;state.zip=null;state.exported=false;
+    await persistCapture(id,capture);
     $('cameraPane').classList.remove('flash');void $('cameraPane').offsetWidth;$('cameraPane').classList.add('flash');
     $('previewStatus').textContent='Assemblage…';
-    try{if(old){resetMosaic();for(const shot of captures.values())await addToMosaic(shot);}else await addToMosaic(capture);}catch(e){toast(e.message);}
+    try{if(old){resetMosaic();for(const [shotId,shot] of captures)await addToMosaic(shot,shotId!==id);}else await addToMosaic(capture);await persistCapture(id,capture);}catch(e){toast(e.message);}
     if(captures.size===targets.length){state.complete=true;state.paused=true;toast('Toutes les directions sont capturées. Exporte ta session.');}
     else{const before=targets[id].label;state.index=nextMissing(id);if(targets[state.index].label!==before)toast(targets[state.index].label+' : suis la nouvelle couronne.');}
     if(navigator.vibrate)navigator.vibrate(40);
@@ -418,23 +610,26 @@ requestAnimationFrame(tick);
 $('help').onclick=()=>{$('closeIntro').hidden=!(state.stream||state.demo);modal('introModal');};$('closeIntro').onclick=()=>closeModal('introModal');
 $('settings').onclick=()=>modal('settingsModal');
 $('fov').oninput=()=>{if(captures.size)return;state.hfov=Number($('fov').value);$('fovLabel').textContent=state.hfov+'°';};
-function resetSession(){
-  if(state.busy)return;if(captures.size&&!confirm('Effacer les photos de cette page ? Exporte-les avant de commencer une nouvelle session.'))return;
-  state.epoch++;for(const c of captures.values())URL.revokeObjectURL(c.url);captures.clear();state.base=null;state.index=0;state.complete=false;state.recal=false;state.zip=null;state.exported=false;state.paused=false;gate.reset();resetMosaic();closeModal('settingsModal');render();
+async function resetSession(){
+  if(state.busy||state.restoring)return;if(captures.size&&!confirm('Effacer les photos de cette page ? Exporte-les avant de commencer une nouvelle session.'))return;
+  try{await sessionStore.clear();}catch(e){if(state.storageOK){toast('Impossible d’effacer la sauvegarde. Réessaie avant une nouvelle session.');return;}}
+  state.needsRecal=false;$('recoverActions').hidden=true;state.epoch++;for(const c of captures.values())URL.revokeObjectURL(c.url);captures.clear();state.base=null;state.index=0;state.complete=false;state.recal=false;state.zip=null;state.exported=false;state.paused=false;gate.reset();resetMosaic();closeModal('settingsModal');render();
 }
 $('reset').onclick=resetSession;
 let recalImage=null;
 $('recalibrate').onclick=()=>{closeModal('settingsModal');modal('recalModal');};
 $('beginRecal').onclick=async()=>{recalImage=await loadImage(captures.get(0).blob);closeModal('recalModal');state.recal=true;state.complete=false;state.paused=false;render();};
-let reviewYaw=0,reviewPitch=0;
+let reviewYaw=0,reviewPitch=0;let originalId=null;
+function openOriginal(id){const c=captures.get(id);if(!c)return;originalId=id;$('originalImage').src=c.url;$('originalTitle').textContent=`Photo ${id+1} · ${c.width} × ${c.height}`;modal('photoModal');}
+$('retakeOriginal').onclick=()=>{state.index=originalId;state.complete=false;closeModal('photoModal');closeModal('reviewModal');state.paused=false;gate.reset();render();toast('Vise le point bleu pour reprendre la photo.');};
 function openReview(){
   const a=angles(currentBasis()||basisFromView());reviewYaw=a.yaw;reviewPitch=a.pitch;
   modal('reviewModal');
   if(!reviewSphere){try{reviewSphere=new SphereViewer($('reviewSphere'));reviewSphere.upload(atlas);}catch(e){toast('Vue 3D indisponible sur ce navigateur. Consulte la carte 360°.');}}
   $('thumbs').replaceChildren();for(const [id,c] of [...captures].sort((a,b)=>a[0]-b[0])){
-    const button=document.createElement('button');button.className='thumb';button.title=`Reprendre la photo ${id+1}`;
-    const img=new Image();img.src=c.url;img.alt=`Photo ${id+1}`;const label=document.createElement('span');label.textContent=`${id+1} · ↻`;button.append(img,label);
-    button.onclick=()=>{state.index=id;state.complete=false;closeModal('reviewModal');state.paused=false;gate.reset();render();toast('Vise le point bleu, puis appuie sur Reprendre.');};$('thumbs').append(button);
+    const button=document.createElement('button');button.className='thumb';button.title=`Voir la photo originale ${id+1}`;
+    const img=new Image();img.src=c.url;img.alt=`Photo ${id+1}`;const label=document.createElement('span');label.textContent=`${id+1} · ⤢`;button.append(img,label);
+    button.onclick=()=>openOriginal(id);$('thumbs').append(button);
   }
 }
 $('expand').onclick=openReview;
@@ -443,15 +638,16 @@ $('reviewView').onpointerdown=e=>{drag={x:e.clientX,y:e.clientY,yaw:reviewYaw,pi
 $('reviewView').onpointermove=e=>{if(drag){reviewYaw=normAngle(drag.yaw-(e.clientX-drag.x)*.2);reviewPitch=clamp(drag.pitch+(e.clientY-drag.y)*.2,-89,89);}};
 $('reviewView').onpointerup=$('reviewView').onpointercancel=()=>drag=null;
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
-$('export').onclick=()=>{modal('exportModal');$('exportInfo').textContent=`${captures.size} photo${captures.size>1?'s':''} sur ${targets.length} directions. ${state.complete?'Le parcours est terminé.':'Tu peux exporter une session partielle.'}`;$('buildZip').hidden=false;$('downloadZip').hidden=true;$('shareZip').hidden=true;$('exportStatus').textContent='';};
-function sessionManifest(){return {app:'HDRI Atelier',version:'3.0',createdAt:new Date().toISOString(),imageType:'JPEG SDR',demo:state.demo,projection:'equirectangular preview from capture orientations; no feature registration or HDR merge',basisConvention:'x right, y forward, z up; camera forward = rear lens axis',hfovEstimated:state.hfov,baseHeading:state.base,preview:{width:atlas.width,height:atlas.height,quality:'approximate'},targets:targets.map(t=>{const c=captures.get(t.id);return {index:t.id,label:t.label,yaw:t.yaw,pitch:t.pitch,filename:c?`capture_${String(t.id+1).padStart(2,'0')}.jpg`:null,...(c?{basis:c.basis,hfov:c.hfov,width:c.width,height:c.height,recordedAt:c.recordedAt}:{} )};})};}
+function openExport(){modal('exportModal');$('exportInfo').textContent=`${captures.size} photo${captures.size>1?'s':''} sur ${targets.length} directions. ${state.complete?'Le parcours est terminé.':'Tu peux exporter une session partielle.'}`;$('buildZip').hidden=false;$('downloadZip').hidden=true;$('shareZip').hidden=true;$('exportStatus').textContent='';}
+$('export').onclick=openExport;$('recoverExport').onclick=openExport;$('recoverReview').onclick=openReview;
+function sessionManifest(){return {app:'HDRI Atelier',version:'3.1',createdAt:new Date().toISOString(),imageType:'JPEG SDR',demo:state.demo,projection:'equirectangular preview with conservative image registration when supported, sensor fallback, single-source pixel selection; no HDR merge',basisConvention:'x right, y forward, z up; camera forward = rear lens axis',hfovEstimated:state.hfov,baseHeading:state.base,preview:{width:atlas.width,height:atlas.height,quality:'approximate'},targets:targets.map(t=>{const c=captures.get(t.id);return {index:t.id,label:t.label,yaw:t.yaw,pitch:t.pitch,filename:c?`capture_${String(t.id+1).padStart(2,'0')}.jpg`:null,...(c?{basis:c.basis,sensorBasis:c.sensorBasis||c.basis,registration:c.registration||null,hfov:c.hfov,width:c.width,height:c.height,recordedAt:c.recordedAt,frameSelection:c.frameSelection,sharpnessScore:c.sharpnessScore}:{} )};})};}
 $('buildZip').onclick=async()=>{
   $('buildZip').disabled=true;$('exportStatus').textContent='Préparation des photos et de l’aperçu…';
   try{
     const entries=[...captures].sort((a,b)=>a[0]-b[0]).map(([id,c])=>({name:`capture_${String(id+1).padStart(2,'0')}.jpg`,blob:c.blob}));
     entries.push({name:'manifest.json',blob:new Blob([JSON.stringify(sessionManifest(),null,2)],{type:'application/json'})});
     entries.push({name:'apercu_panorama_SDR.png',blob:await canvasBlob(atlas,'image/png')});
-    entries.push({name:'LIRE_MOI.txt',blob:new Blob([`HDRI Atelier V3.0\n${state.demo?'SESSION DE DEMONSTRATION — images simulées.\n':''}${captures.size}/${targets.length} directions.\nPhotos JPEG SDR. L’aperçu est une projection équirectangulaire à partir des capteurs et d’un angle de champ estimé. Aucun recalage automatique des détails, aucune fusion HDR : raccords approximatifs et zones manquantes possibles. Les zones transparentes sont non couvertes. Pour la qualité finale, assembler les images originales dans un logiciel panoramique.\n`],{type:'text/plain'})});
+    entries.push({name:'LIRE_MOI.txt',blob:new Blob([`HDRI Atelier V3.1\n${state.demo?'SESSION DE DEMONSTRATION — images simulées.\n':''}${captures.size}/${targets.length} directions.\nPhotos JPEG SDR. L’aperçu est une projection équirectangulaire à partir des capteurs et d’un angle de champ estimé. Recalage par images lorsqu’il est suffisamment étayé ; estimation par capteurs sinon. Pas de fusion HDR. Des raccords et des zones manquantes restent possibles. Les zones transparentes sont non couvertes. Pour la qualité finale, assembler les images originales dans un logiciel panoramique.\n`],{type:'text/plain'})});
     state.zip=await createZip(entries);state.zipName=`HDRI_Atelier_${state.demo?'DEMO_':''}${new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)}.zip`;
     $('buildZip').hidden=true;$('downloadZip').hidden=false;
     const file=new File([state.zip],state.zipName,{type:'application/zip'});$('shareZip').hidden=!navigator.canShare?.({files:[file]});
@@ -468,7 +664,7 @@ function makeDemoTexture(){
   x.fillStyle='#183a2b';x.font='bold 36px sans-serif';x.textAlign='center';x.fillText('PLAFOND',768,125);x.fillText('SOL',768,650);return c;
 }
 $('demo').onclick=()=>{
-  if(captures.size&&!state.demo){toast('Exporte et efface la session avant de lancer la démonstration.');return;}
+  if(state.restoring)return;if(captures.size&&!state.demo){toast('Exporte et efface la session avant de lancer la démonstration.');return;}
   try{
     if(!demoViewer){$('demoView').width=960;$('demoView').height=720;demoViewer=new SphereViewer($('demoView'));demoViewer.upload(makeDemoTexture());}
     state.stream?.getTracks().forEach(t=>t.stop());state.stream=null;state.demo=true;state.aspect=4/3;state.raw=basisFromView(Number($('demoYaw').value),Number($('demoPitch').value));state.lastOrientation=performance.now();state.speed=0;
@@ -487,6 +683,7 @@ window.addEventListener('pagehide',()=>{gate.reset();state.paused=true;});
 window.addEventListener('beforeunload',e=>{if(captures.size&&!state.exported){e.preventDefault();e.returnValue='';}});
 if('serviceWorker' in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});}
 render();
+restoreSession();
 
 </script>
 </body></html>
