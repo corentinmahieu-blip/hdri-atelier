@@ -5,9 +5,9 @@
 @media(orientation:landscape) and (max-height:360px){.sidebar{grid-template-rows:20px 3px 12px minmax(30px,1fr) 11px 26px;gap:3px;padding:6px}.sidebar .stage,.map-container{display:none}.sidebar>button{min-height:26px}.count{font-size:17px}.instruction>div{padding:6px 10px}#instruction{font-size:14px}#detail{font-size:9px}.camera-top{top:8px}.pill{padding:4px 7px;font-size:10px}}
 </style></head>
 <body>
-<div class="rotate-screen"><div><div class="eyebrow">CoMa · HDRI Atelier V3.1</div><div class="rotate-icon" aria-hidden="true"></div><h2>Tourne ton téléphone.</h2><p>Le parcours se fait en paysage, avec le panorama visible à côté de la caméra.</p><small>Si l’écran ne tourne pas, désactive le verrouillage de rotation dans le Centre de contrôle de l’iPhone.</small></div></div>
+<div class="rotate-screen"><div><div class="eyebrow">CoMa · HDRI Atelier V3.2</div><div class="rotate-icon" aria-hidden="true"></div><h2>Tourne ton téléphone.</h2><p>Le parcours se fait en paysage, avec le panorama visible à côté de la caméra.</p><small>Si l’écran ne tourne pas, désactive le verrouillage de rotation dans le Centre de contrôle de l’iPhone.</small></div></div>
 <main class="app">
- <header class="topbar"><div class="brand"><h1>HDRI Atelier</h1><span class="version">V3.1</span><span class="eyebrow">CoMa / Capture environnement</span></div><div class="top-actions"><span id="demoBadge" class="pill demo" hidden>DÉMONSTRATION</span><button id="help" class="quiet small">Guide</button><button id="settings" class="quiet small">Réglages</button></div></header>
+ <header class="topbar"><div class="brand"><h1>HDRI Atelier</h1><span class="version">V3.2</span><span class="eyebrow">CoMa / Capture environnement</span></div><div class="top-actions"><span id="demoBadge" class="pill demo" hidden>DÉMONSTRATION</span><button id="help" class="quiet small">Guide</button><button id="settings" class="quiet small">Réglages</button></div></header>
  <div class="workspace">
   <section id="cameraPane" class="camera-pane" aria-label="Caméra et guidage sur la sphère">
    <video id="video" autoplay muted playsinline></video><canvas id="demoView" hidden></canvas><canvas id="overlay"></canvas>
@@ -28,7 +28,7 @@
 </main>
 <section id="introModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="introTitle"><div class="modal-card">
  <div class="modal-head"><span class="eyebrow">Un tour complet · 54 directions</span><button id="closeIntro" class="quiet small" hidden>Fermer</button></div>
- <div class="intro-content"><div><h2 id="introTitle">Photographie tout<br>autour de toi.</h2><p>Vise le point bleu. Reste immobile : l’app compare trois images de la vidéo, puis ajoute la prise à l’aperçu du panorama.</p><p>Garde l’objectif au même endroit, même quand tu te tournes.</p></div>
+ <div class="intro-content"><div><h2 id="introTitle">Photographie tout<br>autour de toi.</h2><p>Vise le point bleu. Tourne doucement : l’app compare trois images de la vidéo, puis ajoute la prise à l’aperçu du panorama.</p><p>Garde l’objectif au même endroit, même quand tu te tournes.</p></div>
  <ol class="steps"><li><b>1</b><div><strong>Active la caméra et les capteurs</strong>Autorise les demandes de Safari.</div></li><li><b>2</b><div><strong>Vise devant toi, à l’horizontale</strong>La première photo définit le départ.</div></li><li><b>3</b><div><strong>Suis la sphère de points</strong>L’horizon, le haut, puis le bas.</div></li></ol></div>
  <div class="modal-actions"><button id="start" class="primary">Activer et commencer</button><button id="demo" class="quiet">Essayer la démonstration</button></div><div id="recoverActions" class="modal-actions" hidden><button id="recoverReview">Voir la session retrouvée</button><button id="recoverExport">Exporter les photos retrouvées</button></div><div id="startStatus" class="status-box" role="status"></div>
  <p class="muted" style="margin-top:12px"><span id="saveStatus">Sauvegarde locale automatique · export conseillé</span></p>
@@ -346,13 +346,23 @@ async function createZip(entries){
 
 
 const $=id=>document.getElementById(id),targets=makeTargets(),captures=new Map(),gate=new HoldGate(1100);
-const atlas=document.createElement('canvas');atlas.width=4096;atlas.height=2048;
+const atlas=document.createElement('canvas');atlas.width=2048;atlas.height=1024;
 const atlasCtx=atlas.getContext('2d');
 const state={stream:null,raw:null,base:null,index:0,busy:false,paused:false,complete:false,demo:false,recal:false,modal:true,hfov:64,aspect:4/3,lastOrientation:-Infinity,lastMotion:-Infinity,speed:Infinity,motionSpeed:Infinity,signalAfterResume:0,epoch:0,zip:null,exported:false,storageOK:true,restoring:true,needsRecal:false};
 const sessionStore=new SessionStore();
 let localRegistrar=new ImageRegistrar();
 let sphere=null,reviewSphere=null,demoViewer=null,worker=null,mosaic=null,frame=0,toastTimer,requestId=0;
 const pending=new Map();
+let processing=Promise.resolve(),queued=0;
+function enqueueCapture(id,capture,old){
+  queued++;render();
+  processing=processing.then(async()=>{
+    if(old){resetMosaic();for(const [shotId,shot] of captures)await addToMosaic(shot,shotId!==id);}
+    else await addToMosaic(capture);
+    await persistCapture(id,capture);
+  }).catch(e=>toast('Assemblage interrompu : '+e.message)).finally(()=>{queued--;render();});
+}
+
 function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,5000);}
 function setText(id,text){if($(id).textContent!==text)$(id).textContent=text;}
 function instruction(title,detail=''){setText('instruction',title);setText('detail',detail);}
@@ -391,7 +401,7 @@ async function addToMosaic(capture,skipRegistration=false){
     atlasCtx.putImageData(new ImageData(result.pixels,atlas.width,atlas.height),0,0);updateTexture();
   }
 }
-function savedMeta(){return {version:'3.1',base:state.base,hfov:state.hfov,demo:state.demo,updatedAt:new Date().toISOString()};}
+function savedMeta(){return {version:'3.2',base:state.base,hfov:state.hfov,demo:state.demo,updatedAt:new Date().toISOString()};}
 async function persistCapture(id,capture){
   try{await sessionStore.save(id,capture,savedMeta());state.storageOK=true;setText('saveStatus','Photos sauvegardées sur cet appareil');}
   catch(e){state.storageOK=false;setText('saveStatus','Sauvegarde indisponible · exporte la session');toast('Sauvegarde impossible : exporte avant de fermer la page.');}
@@ -480,20 +490,20 @@ function render(){
   const t=targets[state.index];setText('count',`${captures.size} / ${targets.length}`);$('bar').style.width=`${captures.size/targets.length*100}%`;
   setText('stage',state.complete?'Tour terminé':t.label);const groups=targets.filter(x=>x.pitch===t.pitch),done=groups.filter(x=>captures.has(x.id)).length;
   setText('stageDetail',state.complete?'Les photos sont prêtes à exporter':`${done} / ${groups.length} vues · ${t.pitch>0?'Incline vers le haut':t.pitch<0?'Incline vers le bas':'À hauteur des yeux'}`);
-  $('emptyPreview').hidden=captures.size>0;setText('previewStatus',`${captures.size} photo${captures.size>1?'s':''}`);
-  $('export').disabled=!captures.size||state.busy;$('pause').disabled=state.base===null||state.busy||state.complete;$('pause').textContent=state.paused?'Reprendre':'Pause';
+  $('emptyPreview').hidden=captures.size>0;setText('previewStatus',queued?`${queued} en traitement`:`${captures.size} photo${captures.size>1?'s':''}`);
+  $('export').disabled=!captures.size||state.busy||queued>0;$('pause').disabled=state.base===null||state.busy||state.complete;$('pause').textContent=state.paused?'Reprendre':'Pause';
   const last=[...captures.values()].at(-1);const matched=[...captures.values()].filter(c=>c.registration?.accepted).length;setText('alignmentStatus',captures.size?`${matched} vues recalées · autres raccords à vérifier`:'Recherche de repères entre les photos');
-  $('fov').disabled=captures.size>0;$('recalibrate').disabled=!captures.has(0)||state.busy;$('reset').disabled=state.busy;
+  $('fov').disabled=captures.size>0;$('recalibrate').disabled=!captures.has(0)||state.busy||queued>0;$('reset').disabled=state.busy||queued>0;
   $('capture').textContent=state.recal?'Valider le recalage':state.complete?'Voir le panorama':state.base===null?'Fixer le départ · Photo 1':captures.has(state.index)?`Reprendre la photo ${state.index+1}`:$('auto').checked?'Capture automatique':`Capturer la photo ${state.index+1}`;
   setText('cameraStatus',state.demo?'Démonstration · scène simulée':state.stream?'Caméra arrière · paysage':'Caméra inactive');
   drawMap();
 }
 function readiness(now,allowBusy=false){
-  const b=currentBasis();if(!landscape()||state.modal||(state.busy&&!allowBusy)||state.restoring||state.needsRecal||state.paused||(!state.stream&&!state.demo)||!b||document.hidden)return null;
+  const b=currentBasis();if(queued>=3||(queued&&captures.has(state.index))||!landscape()||state.modal||(state.busy&&!allowBusy)||state.restoring||state.needsRecal||state.paused||(!state.stream&&!state.demo)||!b||document.hidden)return null;
   const source=state.demo?$('demoView'):$('video');if(!state.demo&&(!source.videoWidth||source.readyState<2||state.aspect<1))return null;
   if(signalTime()<state.signalAfterResume&&!state.demo)return null;
   const target=(state.base===null||state.recal)?{ray:basisFromView(angles(b).yaw,state.recal?angles(captures.get(0).basis).pitch:0).forward,pitch:0}:targets[state.index];
-  const a=alignment(b,target,now,state.demo?now:signalTime(),currentSpeed(now));return {...a,aligned:a.separation<4.5};
+  const a=alignment(b,target,now,state.demo?now:signalTime(),currentSpeed(now));return {...a,stable:currentSpeed(now)<10,aligned:a.separation<6};
 }
 async function take(){
   const ready=readiness(performance.now());if(!ready||!ready.aligned||!ready.level||!ready.stable||!ready.fresh||state.complete)return;
@@ -523,7 +533,7 @@ async function take(){
     await persistCapture(id,capture);
     $('cameraPane').classList.remove('flash');void $('cameraPane').offsetWidth;$('cameraPane').classList.add('flash');
     $('previewStatus').textContent='Assemblage…';
-    try{if(old){resetMosaic();for(const [shotId,shot] of captures)await addToMosaic(shot,shotId!==id);}else await addToMosaic(capture);await persistCapture(id,capture);}catch(e){toast(e.message);}
+    enqueueCapture(id,capture,old);
     if(captures.size===targets.length){state.complete=true;state.paused=true;toast('Toutes les directions sont capturées. Exporte ta session.');}
     else{const before=targets[id].label;state.index=nextMissing(id);if(targets[state.index].label!==before)toast(targets[state.index].label+' : suis la nouvelle couronne.');}
     if(navigator.vibrate)navigator.vibrate(40);
@@ -578,7 +588,8 @@ function guide(now){
   if(state.complete){instruction('Tour terminé','Regarde le panorama, puis exporte ta session.');gate.reset();return;}
   if(state.recal){instruction('Aligne la caméra sur la photo en transparence','Replace-toi au même point, à hauteur des yeux, puis valide.');gate.reset();return;}
   if(!landscape()||document.hidden||state.modal){gate.reset();return;}
-  if(state.busy){instruction('Photo prise · assemblage de l’aperçu','Garde l’objectif au même endroit.');gate.reset();return;}
+  if(queued>=3){instruction('Ralentis · traitement en cours','La capture reprend dès qu’une place se libère.');gate.reset();return;}
+  if(state.busy){instruction('Sélection de la photo','Continue doucement, sans déplacer l’objectif.');gate.reset();return;}
   if(!isActive){instruction('Active la caméra et l’orientation','Ouvre le guide pour commencer.');gate.reset();return;}
   if(!b||(!state.demo&&signalTime()<state.signalAfterResume)){instruction('Bouge légèrement le téléphone','En attente d’une nouvelle mesure des capteurs.');gate.reset();return;}
   if(!state.demo&&state.aspect<1){instruction('Attends que la caméra passe en paysage','Si nécessaire, réactive la caméra depuis le guide.');gate.reset();return;}
@@ -595,9 +606,9 @@ function guide(now){
     if(Math.abs(dp)>3)parts.push(`${dp>0?'Monte':'Descends'} ${Math.round(Math.abs(dp))}°`);
     instruction(parts.join(' · ')||'Centre le point bleu',`Vue ${state.index+1} · ${target.label}`);gate.reset();return;
   }
-  if(!ready.stable){instruction('Ralentis, puis reste immobile','La cible est alignée.');gate.reset();return;}
+  if(!ready.stable){instruction('Ralentis','Tourne doucement pour limiter le flou.');gate.reset();return;}
   const auto=$('auto').checked&&!captures.has(state.index);
-  if(auto){instruction('Parfait · reste immobile',`Photo dans ${Math.max(.1,(gate.duration-gate.elapsed)/1000).toFixed(1)} s`);if(gate.update(now,true))take();}
+  if(auto){instruction('Continue doucement','La capture se déclenche au passage du point bleu.');take();}
   else{instruction('Cible alignée','Appuie sur Capturer pour enregistrer cette direction.');gate.reset();}
 }
 let previousTick=0;
@@ -611,7 +622,7 @@ $('help').onclick=()=>{$('closeIntro').hidden=!(state.stream||state.demo);modal(
 $('settings').onclick=()=>modal('settingsModal');
 $('fov').oninput=()=>{if(captures.size)return;state.hfov=Number($('fov').value);$('fovLabel').textContent=state.hfov+'°';};
 async function resetSession(){
-  if(state.busy||state.restoring)return;if(captures.size&&!confirm('Effacer les photos de cette page ? Exporte-les avant de commencer une nouvelle session.'))return;
+  if(state.busy||state.restoring||queued)return;if(captures.size&&!confirm('Effacer les photos de cette page ? Exporte-les avant de commencer une nouvelle session.'))return;
   try{await sessionStore.clear();}catch(e){if(state.storageOK){toast('Impossible d’effacer la sauvegarde. Réessaie avant une nouvelle session.');return;}}
   state.needsRecal=false;$('recoverActions').hidden=true;state.epoch++;for(const c of captures.values())URL.revokeObjectURL(c.url);captures.clear();state.base=null;state.index=0;state.complete=false;state.recal=false;state.zip=null;state.exported=false;state.paused=false;gate.reset();resetMosaic();closeModal('settingsModal');render();
 }
@@ -640,14 +651,14 @@ $('reviewView').onpointerup=$('reviewView').onpointercancel=()=>drag=null;
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
 function openExport(){modal('exportModal');$('exportInfo').textContent=`${captures.size} photo${captures.size>1?'s':''} sur ${targets.length} directions. ${state.complete?'Le parcours est terminé.':'Tu peux exporter une session partielle.'}`;$('buildZip').hidden=false;$('downloadZip').hidden=true;$('shareZip').hidden=true;$('exportStatus').textContent='';}
 $('export').onclick=openExport;$('recoverExport').onclick=openExport;$('recoverReview').onclick=openReview;
-function sessionManifest(){return {app:'HDRI Atelier',version:'3.1',createdAt:new Date().toISOString(),imageType:'JPEG SDR',demo:state.demo,projection:'equirectangular preview with conservative image registration when supported, sensor fallback, single-source pixel selection; no HDR merge',basisConvention:'x right, y forward, z up; camera forward = rear lens axis',hfovEstimated:state.hfov,baseHeading:state.base,preview:{width:atlas.width,height:atlas.height,quality:'approximate'},targets:targets.map(t=>{const c=captures.get(t.id);return {index:t.id,label:t.label,yaw:t.yaw,pitch:t.pitch,filename:c?`capture_${String(t.id+1).padStart(2,'0')}.jpg`:null,...(c?{basis:c.basis,sensorBasis:c.sensorBasis||c.basis,registration:c.registration||null,hfov:c.hfov,width:c.width,height:c.height,recordedAt:c.recordedAt,frameSelection:c.frameSelection,sharpnessScore:c.sharpnessScore}:{} )};})};}
+function sessionManifest(){return {app:'HDRI Atelier',version:'3.2',createdAt:new Date().toISOString(),imageType:'JPEG SDR',demo:state.demo,projection:'equirectangular preview with conservative image registration when supported, sensor fallback, single-source pixel selection; no HDR merge',basisConvention:'x right, y forward, z up; camera forward = rear lens axis',hfovEstimated:state.hfov,baseHeading:state.base,preview:{width:atlas.width,height:atlas.height,quality:'approximate'},targets:targets.map(t=>{const c=captures.get(t.id);return {index:t.id,label:t.label,yaw:t.yaw,pitch:t.pitch,filename:c?`capture_${String(t.id+1).padStart(2,'0')}.jpg`:null,...(c?{basis:c.basis,sensorBasis:c.sensorBasis||c.basis,registration:c.registration||null,hfov:c.hfov,width:c.width,height:c.height,recordedAt:c.recordedAt,frameSelection:c.frameSelection,sharpnessScore:c.sharpnessScore}:{} )};})};}
 $('buildZip').onclick=async()=>{
-  $('buildZip').disabled=true;$('exportStatus').textContent='Préparation des photos et de l’aperçu…';
+  $('buildZip').disabled=true;await processing;$('exportStatus').textContent='Préparation des photos et de l’aperçu…';
   try{
     const entries=[...captures].sort((a,b)=>a[0]-b[0]).map(([id,c])=>({name:`capture_${String(id+1).padStart(2,'0')}.jpg`,blob:c.blob}));
     entries.push({name:'manifest.json',blob:new Blob([JSON.stringify(sessionManifest(),null,2)],{type:'application/json'})});
     entries.push({name:'apercu_panorama_SDR.png',blob:await canvasBlob(atlas,'image/png')});
-    entries.push({name:'LIRE_MOI.txt',blob:new Blob([`HDRI Atelier V3.1\n${state.demo?'SESSION DE DEMONSTRATION — images simulées.\n':''}${captures.size}/${targets.length} directions.\nPhotos JPEG SDR. L’aperçu est une projection équirectangulaire à partir des capteurs et d’un angle de champ estimé. Recalage par images lorsqu’il est suffisamment étayé ; estimation par capteurs sinon. Pas de fusion HDR. Des raccords et des zones manquantes restent possibles. Les zones transparentes sont non couvertes. Pour la qualité finale, assembler les images originales dans un logiciel panoramique.\n`],{type:'text/plain'})});
+    entries.push({name:'LIRE_MOI.txt',blob:new Blob([`HDRI Atelier V3.2\n${state.demo?'SESSION DE DEMONSTRATION — images simulées.\n':''}${captures.size}/${targets.length} directions.\nPhotos JPEG SDR. L’aperçu est une projection équirectangulaire à partir des capteurs et d’un angle de champ estimé. Recalage par images lorsqu’il est suffisamment étayé ; estimation par capteurs sinon. Pas de fusion HDR. Des raccords et des zones manquantes restent possibles. Les zones transparentes sont non couvertes. Pour la qualité finale, assembler les images originales dans un logiciel panoramique.\n`],{type:'text/plain'})});
     state.zip=await createZip(entries);state.zipName=`HDRI_Atelier_${state.demo?'DEMO_':''}${new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)}.zip`;
     $('buildZip').hidden=true;$('downloadZip').hidden=false;
     const file=new File([state.zip],state.zipName,{type:'application/zip'});$('shareZip').hidden=!navigator.canShare?.({files:[file]});
