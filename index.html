@@ -1,29 +1,492 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111715"><link rel="manifest" href="manifest.webmanifest"><title>HDRI Atelier</title><style>
-:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}*{box-sizing:border-box}body{margin:0;background:#111715;color:#f1f3ee}main{max-width:680px;margin:auto;padding:18px 18px 110px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}.mark{letter-spacing:.14em;font-size:12px;color:#9ec2b0}h1{font-size:30px;letter-spacing:-.05em;margin:6px 0 4px}p{color:#b4c0b9;line-height:1.45}.panel{background:#1d2722;border:1px solid #33443a;border-radius:18px;padding:16px;margin:14px 0}.view{position:relative;background:#050806;aspect-ratio:4/3;border-radius:16px;overflow:hidden}video{width:100%;height:100%;object-fit:cover}.cross{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}.cross:before{content:'';width:58px;height:58px;border:2px solid #d8ebc7;border-radius:50%;opacity:.8}.cross:after{content:'+';position:absolute;font-size:24px;color:#d8ebc7}.info{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#a8c3b2;margin:10px 0}.controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}button{border:1px solid #52695b;border-radius:12px;padding:13px 12px;background:#2c4035;color:#f2f7f0;font-size:15px;font-weight:600;cursor:pointer}button.primary{background:#c5e6bc;color:#142018;border-color:#c5e6bc}button:disabled{opacity:.4}.step{font-size:22px;font-weight:650;margin:7px 0}.muted{color:#9bac9f;font-size:13px}.progress{height:7px;background:#3a4a40;border-radius:20px;overflow:hidden}.progress>div{height:100%;background:#c5e6bc;width:0%;transition:width .2s}.shots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}.shot{aspect-ratio:1;background:#314138;border:1px solid #43584b;border-radius:8px;overflow:hidden;position:relative}.shot img{width:100%;height:100%;object-fit:cover}.shot span{position:absolute;bottom:0;left:0;background:#111a14b8;font-size:10px;padding:3px 5px}small{color:#a8b6ac}.warn{border-left:3px solid #c9a77a;padding-left:10px;font-size:13px}.footer{position:fixed;bottom:0;left:0;right:0;background:#111715e8;backdrop-filter:blur(12px);padding:12px max(18px,calc((100vw - 644px)/2));border-top:1px solid #34453a}.footer button{width:100%} .aim{position:absolute;width:48px;height:48px;border:3px solid #83b9ff;border-radius:50%;transform:translate(-50%,-50%);left:50%;top:50%;pointer-events:none;box-shadow:0 0 15px #0008;transition:left .09s linear,top .09s linear}.aim[hidden]{display:none!important}.aim.ready{border-color:#a4f5a8;background:#4eaa7040}.aim:after{content:"";position:absolute;inset:17px;border-radius:50%;background:#83b9ff}.aim.ready:after{background:#a4f5a8}.guide{position:absolute;left:10px;right:10px;bottom:12px;text-align:center;padding:9px;border-radius:10px;background:#101913db;font-size:13px}.switch{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:14px}.switch input{width:20px;height:20px;accent-color:#bfe8b6}.sensor{font-size:13px;color:#c4d9c8;margin:9px 0}.hint{font-size:12px;color:#f2c88e} </style></head><body><main><header><div class="mark">COMA / CAPTURE ENVIRONNEMENT</div><div class="mark">V2.2</div></header><h1>HDRI Atelier</h1><p>Capture panoramique guidée pour Blender. Les photos sont enregistrées localement dans ton navigateur jusqu'à leur export.</p><section class="panel"><div class="info"><span id="camstatus">Caméra inactive</span><span id="heading">Orientation : —</span></div><div class="view"><video id="video" autoplay muted playsinline></video><canvas id="dome" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas><div class="cross"></div><div id="guide" class="guide">Active la caméra et l’orientation, puis prends la première photo.</div></div><div class="info"><span>Points bleus : prochaine vue · verts : prises</span><span>Blancs : à prendre</span></div><div class="controls"><button id="start">Activer la caméra</button><button id="motion">Activer l'orientation</button></div></section><section class="panel"><div class="info"><span>Parcours de capture</span><span id="count">0 / 18</span></div><div class="progress"><div id="bar"></div></div><div class="step" id="target">Horizontal · 0°</div><p class="muted" id="instructions">Place le téléphone verticalement. Capture 12 directions autour de toi, puis 3 vers le haut et 3 vers le bas. Garde la même position.</p><label class="switch"><input type="checkbox" id="auto" checked> Déclenchement automatique après la première photo</label><div class="sensor" id="sensor">Capteurs non activés</div><div class="controls"><button id="previous">Précédent</button><button id="next">Ignorer la position</button></div><div class="shots" id="shots"></div></section><section class="panel"><strong>Export vers Windows</strong><p class="muted">Télécharge les photos une par une et le manifeste JSON. Safari peut demander l'autorisation pour chaque fichier. Conserve les noms d'origine.</p><div class="controls"><button id="export">Exporter les captures</button><button id="reset">Effacer la session</button></div><p class="warn">La V2 ne contrôle pas l'exposition et ne capture pas de RAW. Elle n'est pas un système HDR multi-exposition. Le traitement Windows produit d'abord un panorama SDR.</p></section></main><div class="footer"><button class="primary" id="capture">Capturer cette direction</button></div><canvas id="canvas" hidden></canvas><script>const targets=[...Array.from({length:12},(_,i)=>({label:`Horizontal · ${i*30}°`,yaw:i*30,pitch:0})),...Array.from({length:3},(_,i)=>({label:`Plafond · ${i*120}°`,yaw:i*120,pitch:60})),...Array.from({length:3},(_,i)=>({label:`Sol · ${i*120}°`,yaw:i*120,pitch:-60}))];
-const $=id=>document.getElementById(id),captures=new Map();let index=0,stream=null,orientation=null,base=null,enabled=false,hold=0,busy=false,prevSample=null,lastTick=0,lastSensor=0,listenerInstalled=false;
-const norm=a=>((a+180)%360+360)%360-180;
-function pose(){if(!orientation||!base)return null;return {yaw:norm(orientation.yaw-base.yaw),pitch:base.pitch-orientation.pitch};}
-function render(){const t=targets[index];$('target').textContent=t.label;$('count').textContent=`${captures.size} / ${targets.length}`;$('bar').style.width=`${captures.size/targets.length*100}%`;$('shots').innerHTML='';targets.forEach((t,i)=>{const d=document.createElement('div');d.className='shot';if(captures.has(i)){const im=document.createElement('img');im.src=captures.get(i).url;d.append(im)}const sp=document.createElement('span');sp.textContent=`${i+1}${captures.has(i)?' ✓':''}`;d.append(sp);d.onclick=()=>{index=i;hold=0;render()};$('shots').append(d)});}
-async function start(){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1440}},audio:false});$('video').srcObject=stream;$('camstatus').textContent='Caméra active'}catch(e){alert('Accès caméra impossible : ouvre le site HTTPS dans Safari et autorise la caméra. '+e.message)}}$('start').onclick=start;
-$('motion').onclick=async()=>{try{if(!('DeviceOrientationEvent'in window))throw Error('Capteur non disponible');if(typeof DeviceOrientationEvent.requestPermission==='function'){const p=await DeviceOrientationEvent.requestPermission();if(p!=='granted')throw Error('Permission refusée')}if(!listenerInstalled)window.addEventListener('deviceorientation',e=>{const compass=Number.isFinite(e.webkitCompassHeading)?e.webkitCompassHeading:null;const yaw=compass!==null?compass:(Number.isFinite(e.alpha)?360-e.alpha:null);if(yaw===null||!Number.isFinite(e.beta))return;orientation={yaw,pitch:e.beta,alpha:e.alpha,beta:e.beta,gamma:e.gamma,compass};enabled=true;lastSensor=Date.now();$('heading').textContent=`Cap : ${Math.round(yaw)}°`;},{passive:true});listenerInstalled=true;$('sensor').textContent='En attente du capteur : bouge légèrement le téléphone.';setTimeout(()=>{if(!enabled)$('sensor').textContent='Aucune donnée reçue. Vérifie les réglages Safari : Mouvement et orientation, puis réessaie.'},4000);}catch(e){alert('Orientation indisponible : '+e.message)}};
-async function take(){if(busy||!stream)return alert('Active la caméra avant la capture.');const v=$('video'),c=$('canvas');if(!v.videoWidth)return alert('Attends que l’image de la caméra apparaisse.');if(!base && (!orientation || Date.now()-lastSensor>2000))return alert('Active l’orientation et attends que le capteur réponde avant la première photo.');if(!base && index!==0)return alert('Commence par la première position pour calibrer le repère.');busy=true;try{c.width=v.videoWidth;c.height=v.videoHeight;c.getContext('2d').drawImage(v,0,0);const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.95));if(!blob)throw Error('Capture impossible');if(index===0&&orientation&&!base)base={yaw:orientation.yaw,pitch:orientation.pitch};if(captures.has(index))URL.revokeObjectURL(captures.get(index).url);captures.set(index,{blob,url:URL.createObjectURL(blob),orientation:orientation?{...orientation}:null,recordedAt:new Date().toISOString()});const next=targets.findIndex((_,i)=>i>index&&!captures.has(i));index=next>=0?next:Math.min(index+1,targets.length-1);hold=0;render();if(captures.size===targets.length){$('auto').checked=false;$('guide').textContent='Toutes les directions sont capturées !';}}catch(e){alert(e.message)}finally{busy=false}}
-$('capture').onclick=take;$('previous').onclick=()=>{index=Math.max(0,index-1);hold=0;render()};$('next').onclick=()=>{index=Math.min(targets.length-1,index+1);hold=0;render()};
-function drawDome(p){
- const canvas=$('dome'),rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1,w=rect.width,h=rect.height;
- if(!w||!h)return;if(canvas.width!==Math.round(w*ratio)||canvas.height!==Math.round(h*ratio)){canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio)}
- const ctx=canvas.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);if(!p)return;
- // Angular map, approximate camera FOV; points outside the field remain out of view.
- const rad=Math.PI/180, yaw=p.yaw*rad,pitch=p.pitch*rad, f=w/(2*Math.tan(60*rad/2));
- const forward=[Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch)];
- const right=[Math.cos(yaw),0,-Math.sin(yaw)],up=[-Math.sin(yaw)*Math.sin(pitch),Math.cos(pitch),-Math.cos(yaw)*Math.sin(pitch)];
- for(let i=0;i<targets.length;i++){const t=targets[i],a=t.yaw*rad,b=t.pitch*rad,v=[Math.sin(a)*Math.cos(b),Math.sin(b),Math.cos(a)*Math.cos(b)];
- const dot=q=>v[0]*q[0]+v[1]*q[1]+v[2]*q[2],z=dot(forward);if(z<=0)continue;
- const x=w/2+f*dot(right)/z,y=h/2-f*dot(up)/z;if(x<15||x>w-15||y<15||y>h-15)continue;
- const done=captures.has(i),current=i===index&&!done,r=current?18:10;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=done?'rgba(145,240,164,.70)':current?'rgba(85,169,255,.35)':'rgba(255,255,255,.22)';ctx.fill();ctx.lineWidth=current?3:2;ctx.strokeStyle=done?'#b6ffc3':current?'#8ec8ff':'#fff';ctx.stroke();ctx.fillStyle='#fff';ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(done?'✓':String(i+1),x,y);
- }
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111715"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="manifest.webmanifest"><title>HDRI Atelier — Capture guidée</title><style>:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--bg:#111715;--panel:#1d2722;--line:#33483b;--ink:#f1f3ee;--muted:#a9b9ae;--green:#c5e6bc;--blue:#8bc7ff;--amber:#efd09a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);overscroll-behavior:none}button,input,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:#293c31;color:var(--ink);padding:10px 15px;border-radius:12px;min-height:42px;font-weight:600}button:disabled{opacity:.4;cursor:default}.primary{background:var(--green);border-color:var(--green);color:#15231a}.quiet{background:transparent}.small{font-size:12px;min-height:34px;padding:7px 10px}.danger{color:#ffbdb2}button:focus-visible,input:focus-visible{outline:3px solid var(--blue);outline-offset:3px}[hidden]{display:none!important}h1,h2,p{margin:0}h1{font-size:18px;letter-spacing:-.04em}h2{font-size:26px;letter-spacing:-.045em;line-height:1.1}p{line-height:1.5;color:var(--muted)}.eyebrow{text-transform:uppercase;font-size:10px;letter-spacing:.15em;color:#a3c7af}.muted{font-size:12px;color:var(--muted)}.app{height:100dvh;height:100svh;display:grid;grid-template-rows:48px minmax(0,1fr) 66px;padding:0 max(12px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(12px,env(safe-area-inset-left));gap:8px;max-width:1600px;margin:auto}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:baseline;gap:12px}.version{font-size:10px;color:var(--green);border:1px solid var(--line);border-radius:20px;padding:4px 7px}.top-actions{display:flex;gap:7px;align-items:center}.workspace{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;min-height:0}.camera-pane{position:relative;border-radius:17px;background:#050907;overflow:hidden;min-width:0;min-height:0;box-shadow:inset 0 0 0 1px var(--line)}video,#demoView,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}#overlay{pointer-events:none}.camera-top{position:absolute;z-index:2;left:14px;right:14px;top:12px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start;pointer-events:none}.pill{border-radius:20px;background:#101a15ce;padding:6px 10px;font-size:11px;color:#dae9de;border:1px solid #46645266;backdrop-filter:blur(8px)}.pill.demo{color:var(--amber)}.instruction{position:absolute;bottom:12px;left:16px;right:16px;text-align:center;pointer-events:none;z-index:2}.instruction>div{display:inline-block;max-width:100%;background:#0c1711de;border:1px solid #486452;border-radius:14px;padding:10px 18px;backdrop-filter:blur(10px)}#instruction{font-size:19px;line-height:1.15;font-weight:650}#detail{font-size:12px;color:#bacebe;margin-top:5px;min-height:16px}.sidebar{border:1px solid var(--line);border-radius:17px;padding:14px;display:flex;flex-direction:column;gap:9px;min-height:0;background:var(--panel);overflow:auto}.count-row{display:flex;justify-content:space-between;align-items:baseline}.count{font-size:24px;font-variant-numeric:tabular-nums;letter-spacing:-.05em}.progress{height:4px;background:#394d40;border-radius:4px;overflow:hidden}.progress i{display:block;height:100%;background:var(--green);width:0;transition:width .3s}.stage{font-size:14px;font-weight:650}.live-preview{position:relative;min-height:76px;flex:1;border-radius:11px;overflow:hidden;background:#101912;border:1px solid #3a4c3e}.live-preview canvas{display:block;width:100%;height:100%;position:absolute;inset:0}.live-preview button{position:absolute;right:7px;top:6px;background:#111c15c9}.empty-preview{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;color:#90aa98;font-size:13px;pointer-events:none}.map-container{position:relative;aspect-ratio:2;max-height:112px;flex-shrink:0;border-radius:8px;overflow:hidden;border:1px solid #3a4c3e;background:repeating-linear-gradient(45deg,#142017,#142017 5px,#1b291f 5px,#1b291f 10px)}#map{width:100%;height:100%;display:block}.preview-label{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted)}.live-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px}.legend{font-size:10px;line-height:1.4;color:#a6b9ac}.sidebar button{width:100%}.bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding-bottom:8px}.auto{font-size:12px;display:flex;gap:8px;align-items:center;white-space:nowrap}.auto input{width:18px;height:18px;accent-color:var(--green)}.actions{display:flex;gap:8px;align-items:center;flex:1;justify-content:flex-end}.actions .primary{min-width:230px}.rotate-screen{display:none}.modal{position:fixed;z-index:20;inset:0;background:#061009d9;backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:center;padding:18px}.modal-card{background:#1c2921;border:1px solid #49614f;border-radius:22px;padding:26px;width:600px;max-width:100%;max-height:100%;overflow:auto}.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.intro-content{display:grid;grid-template-columns:1fr 1fr;gap:24px}.intro-content p{font-size:13px;margin-top:10px}.steps{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:14px}.steps li{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:start;font-size:12px;color:var(--muted);line-height:1.4}.steps b{display:grid;place-items:center;border:1px solid #647f6b;border-radius:50%;width:24px;height:24px;color:var(--green)}.steps strong{color:var(--ink);font-size:13px;display:block}.modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.status-box{margin-top:12px;color:var(--amber);font-size:13px;line-height:1.4}.settings-row{display:grid;grid-template-columns:1fr 100px;gap:15px;margin:18px 0;align-items:center;font-size:14px}.settings-row select{width:100%;background:var(--bg);border:1px solid #52695b;color:var(--ink);padding:8px;border-radius:8px}.settings-row input{width:100%;accent-color:var(--green)}.notes{border-left:2px solid #d3b587;padding-left:10px;font-size:12px;line-height:1.5}.review-card{width:min(1100px,100%);height:100%;display:flex;flex-direction:column;min-height:0}.review-card .modal-head{margin-bottom:10px}.review-view{position:relative;flex:1;min-height:90px;background:#07100a;border-radius:12px;overflow:hidden;touch-action:none}.review-view canvas{width:100%;height:100%;display:block;position:absolute;inset:0}.review-tip{font-size:11px;color:var(--muted);margin:8px 0}.thumbs{display:flex;gap:7px;overflow:auto;padding:7px 0;min-height:64px}.thumb{position:relative;min-width:74px;width:74px;height:56px;padding:0;overflow:hidden;border-radius:7px}.thumb img{width:100%;height:100%;object-fit:cover}.thumb span{position:absolute;bottom:0;left:0;background:#06130ed9;padding:2px 5px;font-size:10px}.toast{position:fixed;z-index:40;left:50%;bottom:80px;transform:translateX(-50%);background:#d8edcb;color:#17281c;border-radius:12px;padding:12px 20px;max-width:90vw;font-size:13px;box-shadow:0 4px 30px #0009}.demo-controls{display:flex;gap:10px;align-items:center;font-size:11px}.demo-controls label{display:flex;gap:5px;align-items:center}.demo-controls input{width:105px;accent-color:var(--blue)}.flash{animation:flash .3s ease-out}@keyframes flash{from{box-shadow:inset 0 0 0 2000px #fff8}to{box-shadow:inset 0 0 0 0 transparent}}@media(max-height:520px){.app{grid-template-rows:36px minmax(0,1fr) 51px;gap:6px}.workspace{grid-template-columns:minmax(0,1fr) 218px;gap:8px}.sidebar{padding:9px;gap:6px}.count{font-size:19px}.stage{font-size:12px}.map-container{max-height:78px}.live-preview{min-height:48px}.legend{font-size:9px}.sidebar .small{min-height:29px;padding:4px 8px}.instruction{bottom:9px}.instruction>div{padding:8px 14px}#instruction{font-size:16px}#detail{font-size:10px;min-height:12px;margin-top:3px}.bottom{padding:0}.bottom button{min-height:38px;padding:8px 12px}.modal-card{padding:18px}.intro-content{gap:22px}.steps{gap:9px}.modal-actions{margin-top:13px}.eyebrow{font-size:9px}.brand .eyebrow{display:none}.top-actions .small{min-height:28px;padding:4px 9px}.review-card .thumbs{min-height:51px}.thumb{height:44px}.status-box{margin-top:8px}}@media(max-width:750px) and (orientation:landscape){.workspace{grid-template-columns:minmax(0,1fr) 182px}.actions .primary{min-width:170px;font-size:12px}.sidebar{padding:7px}.auto{font-size:11px}.demo-controls input{width:55px}.brand{gap:6px}h1{font-size:16px}.top-actions{gap:4px}.top-actions .small{font-size:10px;padding:4px 6px}}@media(orientation:portrait){.rotate-screen{position:fixed;inset:0;display:flex;z-index:35;align-items:center;justify-content:center;background:#111715;padding:35px;text-align:center}.rotate-screen>div{max-width:360px}.rotate-icon{display:inline-block;width:95px;height:49px;border:3px solid var(--green);border-radius:12px;margin:25px;position:relative}.rotate-icon:after{content:'↻';position:absolute;font-size:42px;right:-32px;top:-30px;color:var(--green)}.rotate-screen h2{font-size:30px;margin:12px 0}.rotate-screen p{font-size:15px;margin:15px 0}.rotate-screen small{color:var(--muted);font-size:12px;line-height:1.5}.app{visibility:hidden}.modal{visibility:hidden}}
+/* Keep capture, live assembly and export visible in a phone's short landscape viewport. */
+@media(orientation:landscape) and (max-height:520px){.sidebar{display:grid;grid-template-rows:24px 3px 14px 14px minmax(45px,1fr) 46px 11px 28px;gap:4px;padding:8px;overflow:hidden}#stageDetail{display:none}.live-preview{min-height:0}.map-container{aspect-ratio:auto;max-height:none}.legend{white-space:nowrap;font-size:9px;overflow:hidden}.legend br,.legend .colors{display:none}.sidebar>button{min-height:28px}.preview-label{font-size:10px}.demo-controls input{width:60px}.demo-controls{gap:6px;font-size:10px}}
+@media(orientation:landscape) and (max-height:360px){.sidebar{grid-template-rows:20px 3px 12px minmax(30px,1fr) 11px 26px;gap:3px;padding:6px}.sidebar .stage,.map-container{display:none}.sidebar>button{min-height:26px}.count{font-size:17px}.instruction>div{padding:6px 10px}#instruction{font-size:14px}#detail{font-size:9px}.camera-top{top:8px}.pill{padding:4px 7px;font-size:10px}}
+</style></head>
+<body>
+<div class="rotate-screen"><div><div class="eyebrow">CoMa · HDRI Atelier V3.0</div><div class="rotate-icon" aria-hidden="true"></div><h2>Tourne ton téléphone.</h2><p>Le parcours se fait en paysage, avec le panorama visible à côté de la caméra.</p><small>Si l’écran ne tourne pas, désactive le verrouillage de rotation dans le Centre de contrôle de l’iPhone.</small></div></div>
+<main class="app">
+ <header class="topbar"><div class="brand"><h1>HDRI Atelier</h1><span class="version">V3.0</span><span class="eyebrow">CoMa / Capture environnement</span></div><div class="top-actions"><span id="demoBadge" class="pill demo" hidden>DÉMONSTRATION</span><button id="help" class="quiet small">Guide</button><button id="settings" class="quiet small">Réglages</button></div></header>
+ <div class="workspace">
+  <section id="cameraPane" class="camera-pane" aria-label="Caméra et guidage sur la sphère">
+   <video id="video" autoplay muted playsinline></video><canvas id="demoView" hidden></canvas><canvas id="overlay"></canvas>
+   <div class="camera-top"><span id="cameraStatus" class="pill">Caméra inactive</span><span id="sensorStatus" class="pill">Orientation à activer</span></div>
+   <div class="instruction"><div><div id="instruction" role="status" aria-live="polite">Prépare le point de départ</div><div id="detail">Le premier cliché fixe le début du parcours.</div></div></div>
+  </section>
+  <aside class="sidebar">
+   <div class="count-row"><span class="eyebrow">Parcours guidé</span><span class="count" id="count">0 / 54</span></div><div class="progress"><i id="bar"></i></div>
+   <div class="stage" id="stage">Tour de l’horizon</div><div id="stageDetail" class="muted">12 vues à hauteur des yeux</div>
+   <div class="preview-label"><span><i class="live-dot"></i>Assemblage en direct</span><span id="previewStatus">0 photo</span></div>
+   <div class="live-preview"><canvas id="sphere"></canvas><div id="emptyPreview" class="empty-preview">Ta première photo apparaîtra ici.</div><button class="small quiet" id="expand" aria-label="Agrandir le panorama">⤢</button></div>
+   <div class="map-container"><canvas id="map" aria-label="Carte des photos réparties sur la sphère"></canvas></div>
+   <div class="legend"><span class="colors">Bleu : prochaine vue · Vert : prise</span><br>Aperçu projeté · raccords approximatifs</div>
+   <button id="export" class="small" disabled>Exporter la session</button>
+  </aside>
+ </div>
+ <footer class="bottom"><label class="auto"><input id="auto" type="checkbox" checked>Capture auto</label><div id="demoControls" class="demo-controls" hidden><label>Tourner<input id="demoYaw" type="range" min="-180" max="180" value="0" aria-label="Direction de démonstration"></label><label>Incliner<input id="demoPitch" type="range" min="-90" max="90" value="0" aria-label="Inclinaison de démonstration"></label></div><div class="actions"><button id="pause" class="quiet" disabled>Pause</button><button id="capture" class="primary" disabled>Fixer le départ · Photo 1</button></div></footer>
+</main>
+<section id="introModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="introTitle"><div class="modal-card">
+ <div class="modal-head"><span class="eyebrow">Un tour complet · 54 directions</span><button id="closeIntro" class="quiet small" hidden>Fermer</button></div>
+ <div class="intro-content"><div><h2 id="introTitle">Photographie tout<br>autour de toi.</h2><p>Vise le point bleu. Reste immobile : la photo rejoint aussitôt l’aperçu du panorama.</p><p>Garde l’objectif au même endroit, même quand tu te tournes.</p></div>
+ <ol class="steps"><li><b>1</b><div><strong>Active la caméra et les capteurs</strong>Autorise les demandes de Safari.</div></li><li><b>2</b><div><strong>Vise devant toi, à l’horizontale</strong>La première photo définit le départ.</div></li><li><b>3</b><div><strong>Suis la sphère de points</strong>L’horizon, le haut, puis le bas.</div></li></ol></div>
+ <div class="modal-actions"><button id="start" class="primary">Activer et commencer</button><button id="demo" class="quiet">Essayer la démonstration</button></div><div id="startStatus" class="status-box" role="status"></div>
+ <p class="muted" style="margin-top:12px">Photos gardées dans cette page : exporte avant de la fermer.</p>
+</div></section>
+<section id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden><div class="modal-card"><div class="modal-head"><h2 id="settingsTitle">Réglages</h2><button data-close="settingsModal" class="quiet small">Fermer</button></div><p class="muted">Ces paramètres restent fixes pendant une session.</p><label class="settings-row"><span>Angle de champ estimé<br><small id="fovLabel">64°</small></span><input id="fov" type="range" min="48" max="90" step="1" value="64"></label><p class="notes">L’aperçu place les photos à partir des capteurs et de cet angle estimé. Il peut présenter des décalages ou des images doubles. L’assemblage final et un véritable HDR nécessitent un traitement complémentaire.</p><div class="modal-actions"><button id="recalibrate" disabled>Recaler sur la photo 1</button><button id="reset" class="quiet danger">Nouvelle session</button></div></div></section>
+<section id="reviewModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle" hidden><div class="modal-card review-card"><div class="modal-head"><h2 id="reviewTitle">Ton panorama</h2><button data-close="reviewModal" class="quiet small">Revenir à la capture</button></div><div class="review-view" id="reviewView"><canvas id="reviewSphere"></canvas></div><p class="review-tip">Glisse pour regarder autour de toi. Une zone vide reste à photographier. Touche une vignette pour la reprendre.</p><div id="thumbs" class="thumbs"></div></div></section>
+<section id="exportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="exportTitle" hidden><div class="modal-card"><div class="modal-head"><h2 id="exportTitle">Exporter ta session</h2><button data-close="exportModal" class="quiet small">Fermer</button></div><p id="exportInfo"></p><p class="muted" style="margin-top:10px">Un seul ZIP : photos originales, positions et aperçu panoramique. Cet aperçu est SDR, avec des raccords approximatifs.</p><div class="modal-actions"><button id="buildZip" class="primary">Préparer le ZIP</button><button id="downloadZip" hidden>Télécharger</button><button id="shareZip" hidden>Partager / Enregistrer</button></div><div id="exportStatus" class="status-box" role="status"></div></div></section>
+<section id="recalModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="recalTitle" hidden><div class="modal-card"><div class="modal-head"><h2 id="recalTitle">Retrouve la première vue</h2><button data-close="recalModal" class="quiet small">Annuler</button></div><p class="muted">La première photo va apparaître en transparence sur la caméra. Replace l’objectif au point de départ et aligne les mêmes détails. Valide ensuite le recalage.</p><div class="modal-actions"><button id="beginRecal" class="primary">Afficher la référence</button></div></div></section>
+<div id="toast" class="toast" hidden role="status"></div>
+<script>'use strict';
+const WORKER_SOURCE="// Incremental equirectangular reprojection, not feature-based stitching.\n// Pixels are placed from their capture-time basis and estimated focal angle.\nclass Mosaic {\n  constructor(width=1536,height=768){\n    this.width=width;this.height=height;\n    this.sum=new Float32Array(width*height*4);\n    this.rays=new Float32Array(width*height*3);\n    for(let y=0;y<height;y++){\n      const p=(.5-(y+.5)/height)*Math.PI,cp=Math.cos(p);\n      for(let x=0;x<width;x++){\n        const a=((x+.5)/width-.5)*Math.PI*2,i=(y*width+x)*3;\n        this.rays[i]=Math.sin(a)*cp;this.rays[i+1]=Math.cos(a)*cp;this.rays[i+2]=Math.sin(p);\n      }\n    }\n  }\n  add(data,iw,ih,basis,hfov){\n    const tx=Math.tan(hfov*Math.PI/360),ty=tx*ih/iw;\n    const {right:r,up:u,forward:f}=basis;\n    const rays=this.rays,sum=this.sum;\n    for(let i=0,j=0;i<sum.length;i+=4,j+=3){\n      const x=rays[j],y=rays[j+1],z=rays[j+2],depth=x*f[0]+y*f[1]+z*f[2];\n      if(depth<=0)continue;\n      const nx=(x*r[0]+y*r[1]+z*r[2])/(depth*tx),ny=(x*u[0]+y*u[1]+z*u[2])/(depth*ty);\n      if(Math.abs(nx)>=1||Math.abs(ny)>=1)continue;\n      const px=(nx+1)*.5*(iw-1),py=(1-ny)*.5*(ih-1),ix=Math.floor(px),iy=Math.floor(py),dx=px-ix,dy=py-iy;\n      const k=(iy*iw+ix)*4,kx=Math.min(ix+1,iw-1)*4+iy*iw*4,ky=(Math.min(iy+1,ih-1)*iw+ix)*4,kxy=(Math.min(iy+1,ih-1)*iw+Math.min(ix+1,iw-1))*4;\n      const weight=Math.max(.005,Math.min(1,(1-Math.abs(nx))*5,(1-Math.abs(ny))*5));\n      for(let c=0;c<3;c++)sum[i+c]+=weight*((data[k+c]*(1-dx)+data[kx+c]*dx)*(1-dy)+(data[ky+c]*(1-dx)+data[kxy+c]*dx)*dy);\n      sum[i+3]+=weight;\n    }\n  }\n  pixels(){\n    const data=new Uint8ClampedArray(this.width*this.height*4);\n    for(let i=0;i<data.length;i+=4){const w=this.sum[i+3];if(w){data[i]=this.sum[i]/w;data[i+1]=this.sum[i+1]/w;data[i+2]=this.sum[i+2]/w;data[i+3]=255;}}\n    return data;\n  }\n}\n\nlet mosaic;\nself.onmessage=({data:m})=>{\n  try {\n    if(m.type==='reset'){mosaic=new Mosaic(m.width,m.height);return;}\n    if(m.type==='add'){\n      mosaic.add(m.data,m.width,m.height,m.basis,m.hfov);\n      const pixels=mosaic.pixels();self.postMessage({id:m.id,pixels},[pixels.buffer]);\n    }\n  }catch(e){self.postMessage({id:m.id,error:e.message});}\n};\n";
+// W3C Device Orientation: intrinsic Rz(alpha) Rx(beta) Ry(gamma).
+// World axes: x=right/east, y=forward/north, z=up. Rear camera looks along -device Z.
+const D = Math.PI / 180;
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const dot = (a, b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const normAngle = a => ((a + 180) % 360 + 360) % 360 - 180;
+const angle = (a,b) => Math.acos(clamp(dot(a,b),-1,1))/D;
+function deviceBasis(alpha,beta,gamma,screenAngle=0) {
+  const a=alpha*D,b=beta*D,g=gamma*D,s=screenAngle*D;
+  const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),cg=Math.cos(g),sg=Math.sin(g);
+  const x=[ca*cg-sa*sb*sg,sa*cg+ca*sb*sg,-cb*sg];
+  const y=[-sa*cb,ca*cb,sb];
+  const z=[ca*sg+sa*sb*cg,sa*sg-ca*sb*cg,cb*cg];
+  return {right:x.map((v,i)=>Math.cos(s)*v-Math.sin(s)*y[i]),up:x.map((v,i)=>Math.sin(s)*v+Math.cos(s)*y[i]),forward:z.map(v=>-v)};
 }
-function tick(now){requestAnimationFrame(tick);if(now-lastTick<90)return;const dt=Math.min(200,now-lastTick||100);lastTick=now;const t=targets[index],p=pose(),guide=$('guide');if(!p||!enabled||Date.now()-lastSensor>2000){drawDome(null);hold=0;guide.textContent=base?'Orientation indisponible : vérifie les autorisations. Capture manuelle possible.':(enabled?'Tiens le téléphone vertical, vise devant toi et prends la première photo.':'Active l’orientation et attends la réponse du capteur avant la première photo.');return}drawDome(p);const dy=norm(t.yaw-p.yaw),dp=t.pitch-p.pitch;const ok=Math.abs(dy)<5&&Math.abs(dp)<6;const motion=prevSample?Math.abs(norm(p.yaw-prevSample.yaw))+Math.abs(p.pitch-prevSample.pitch):99;prevSample={...p};const stable=motion<2.0;const auto=$('auto').checked&&captures.size>0&&!captures.has(index)&&Date.now()-lastSensor<2000;if(auto&&ok&&stable&&!busy){hold+=dt;guide.textContent=`Position correcte — capture dans ${Math.max(0,((1300-hold)/1000)).toFixed(1)} s`;if(hold>=1300){hold=0;take()}}else{hold=0;guide.textContent=ok?'Maintiens le téléphone immobile':`${Math.abs(dy)>5?(dy>0?'Tourne à droite':'Tourne à gauche')+' '+Math.round(Math.abs(dy))+'°':''}${Math.abs(dy)>5&&Math.abs(dp)>6?' · ':''}${Math.abs(dp)>6?(dp>0?'Monte':'Descends')+' '+Math.round(Math.abs(dp))+'°':''}`}$('sensor').textContent=`Écart : ${Math.round(dy)}° horizontal · ${Math.round(dp)}° vertical${auto?' · Auto activé':''}`;}
+function basisFromView(yaw=0,pitch=0,roll=0) {
+  const a=yaw*D,b=pitch*D,r=roll*D;
+  const right=[Math.cos(a),-Math.sin(a),0];
+  const up=[-Math.sin(a)*Math.sin(b),-Math.cos(a)*Math.sin(b),Math.cos(b)];
+  return {forward:[Math.sin(a)*Math.cos(b),Math.cos(a)*Math.cos(b),Math.sin(b)],right:right.map((v,i)=>v*Math.cos(r)+up[i]*Math.sin(r)),up:up.map((v,i)=>v*Math.cos(r)-right[i]*Math.sin(r))};
+}
+function angles(basis) {
+  return {yaw:Math.atan2(basis.forward[0],basis.forward[1])/D,pitch:Math.asin(clamp(basis.forward[2],-1,1))/D,roll:Math.atan2(basis.right[2],basis.up[2])/D};
+}
+function rebase(basis,heading) {
+  const a=heading*D,ca=Math.cos(a),sa=Math.sin(a);
+  const convert=v=>[ca*v[0]-sa*v[1],sa*v[0]+ca*v[1],v[2]];
+  return {right:convert(basis.right),up:convert(basis.up),forward:convert(basis.forward)};
+}
+function project(ray,basis,width,height,hfov) {
+  const z=dot(ray,basis.forward),f=width/(2*Math.tan(hfov*D/2));
+  if(z<=0.001)return null;
+  return {x:width/2+f*dot(ray,basis.right)/z,y:height/2-f*dot(ray,basis.up)/z,z};
+}
+function contain(width,height,aspect) {
+  const w=Math.min(width,height*aspect),h=w/aspect;
+  return {x:(width-w)/2,y:(height-h)/2,w,h};
+}
+function makeTargets() {
+  const targets=[];
+  const ring=(pitch,n,label,reverse=false)=>{
+    for(let j=0;j<n;j++){
+      const yaw=normAngle((reverse?-j:j)*360/n);
+      targets.push({id:targets.length,yaw,pitch,label,ray:basisFromView(yaw,pitch).forward});
+    }
+  };
+  ring(0,12,'Tour de l’horizon');
+  ring(30,12,'Première couronne haute',true);
+  ring(60,8,'Vers le plafond');
+  ring(90,1,'Tout en haut');
+  ring(-30,12,'Première couronne basse',true);
+  ring(-60,8,'Vers le sol');
+  ring(-90,1,'Tout en bas');
+  return targets;
+}
+function alignment(basis,target,now,lastSignal,speed) {
+  const separation=angle(basis.forward,target.ray);
+  const roll=Math.abs(angles(basis).roll);
+  return {separation,level:Math.abs(target.pitch)>80||roll<10,stable:speed<5,fresh:now-lastSignal<2500};
+}
+class HoldGate {
+  constructor(duration=1100){this.duration=duration;this.elapsed=0;this.last=null;}
+  reset(){this.elapsed=0;this.last=null;}
+  update(now,eligible){
+    const dt=this.last===null?0:clamp(now-this.last,0,80);this.last=now;
+    if(!eligible){this.elapsed=0;return false;}
+    this.elapsed+=dt;
+    if(this.elapsed>=this.duration){this.reset();return true;}return false;
+  }
+}
+
+// Incremental equirectangular reprojection, not feature-based stitching.
+// Pixels are placed from their capture-time basis and estimated focal angle.
+class Mosaic {
+  constructor(width=1536,height=768){
+    this.width=width;this.height=height;
+    this.sum=new Float32Array(width*height*4);
+    this.rays=new Float32Array(width*height*3);
+    for(let y=0;y<height;y++){
+      const p=(.5-(y+.5)/height)*Math.PI,cp=Math.cos(p);
+      for(let x=0;x<width;x++){
+        const a=((x+.5)/width-.5)*Math.PI*2,i=(y*width+x)*3;
+        this.rays[i]=Math.sin(a)*cp;this.rays[i+1]=Math.cos(a)*cp;this.rays[i+2]=Math.sin(p);
+      }
+    }
+  }
+  add(data,iw,ih,basis,hfov){
+    const tx=Math.tan(hfov*Math.PI/360),ty=tx*ih/iw;
+    const {right:r,up:u,forward:f}=basis;
+    const rays=this.rays,sum=this.sum;
+    for(let i=0,j=0;i<sum.length;i+=4,j+=3){
+      const x=rays[j],y=rays[j+1],z=rays[j+2],depth=x*f[0]+y*f[1]+z*f[2];
+      if(depth<=0)continue;
+      const nx=(x*r[0]+y*r[1]+z*r[2])/(depth*tx),ny=(x*u[0]+y*u[1]+z*u[2])/(depth*ty);
+      if(Math.abs(nx)>=1||Math.abs(ny)>=1)continue;
+      const px=(nx+1)*.5*(iw-1),py=(1-ny)*.5*(ih-1),ix=Math.floor(px),iy=Math.floor(py),dx=px-ix,dy=py-iy;
+      const k=(iy*iw+ix)*4,kx=Math.min(ix+1,iw-1)*4+iy*iw*4,ky=(Math.min(iy+1,ih-1)*iw+ix)*4,kxy=(Math.min(iy+1,ih-1)*iw+Math.min(ix+1,iw-1))*4;
+      const weight=Math.max(.005,Math.min(1,(1-Math.abs(nx))*5,(1-Math.abs(ny))*5));
+      for(let c=0;c<3;c++)sum[i+c]+=weight*((data[k+c]*(1-dx)+data[kx+c]*dx)*(1-dy)+(data[ky+c]*(1-dx)+data[kxy+c]*dx)*dy);
+      sum[i+3]+=weight;
+    }
+  }
+  pixels(){
+    const data=new Uint8ClampedArray(this.width*this.height*4);
+    for(let i=0;i<data.length;i+=4){const w=this.sum[i+3];if(w){data[i]=this.sum[i]/w;data[i+1]=this.sum[i+1]/w;data[i+2]=this.sum[i+2]/w;data[i+3]=255;}}
+    return data;
+  }
+}
+
+class SphereViewer {
+  constructor(canvas){
+    this.canvas=canvas;
+    const gl=canvas.getContext('webgl',{alpha:false,antialias:false,preserveDrawingBuffer:true});
+    if(!gl)throw Error('Aperçu 3D indisponible');this.gl=gl;
+    const shader=(type,source)=>{const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;};
+    const vs=shader(gl.VERTEX_SHADER,'attribute vec2 a; varying vec2 v; void main(){v=a;gl_Position=vec4(a,0.,1.);}');
+    const fs=shader(gl.FRAGMENT_SHADER,`precision highp float; varying vec2 v; uniform sampler2D tex; uniform vec3 r,u,f; uniform float t,aspect;
+      void main(){vec3 d=normalize(f+v.x*t*r+v.y*t/aspect*u);vec2 uv=vec2(fract(atan(d.x,d.y)/6.28318530718+.5),.5+asin(clamp(d.z,-1.,1.))/3.14159265359);vec4 c=texture2D(tex,uv);float grid=step(.965,fract(uv.x*24.))+step(.965,fract(uv.y*12.));vec3 bg=vec3(.055,.085,.070)+grid*.04;gl_FragColor=vec4(mix(bg,c.rgb,c.a),1.);}`);
+    this.p=gl.createProgram();gl.attachShader(this.p,vs);gl.attachShader(this.p,fs);gl.linkProgram(this.p);if(!gl.getProgramParameter(this.p,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(this.p));gl.useProgram(this.p);
+    const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+    const a=gl.getAttribLocation(this.p,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+    this.locations={};for(const k of ['r','u','f','t','aspect'])this.locations[k]=gl.getUniformLocation(this.p,k);
+    this.texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,this.texture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));
+  }
+  upload(source){const g=this.gl;g.bindTexture(g.TEXTURE_2D,this.texture);g.pixelStorei(g.UNPACK_FLIP_Y_WEBGL,true);g.texImage2D(g.TEXTURE_2D,0,g.RGBA,g.RGBA,g.UNSIGNED_BYTE,source);}
+  draw(basis,hfov=75,resize=true){
+    const g=this.gl,c=this.canvas;if(resize){const rect=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2),w=Math.max(1,Math.round(rect.width*d)),h=Math.max(1,Math.round(rect.height*d));if(c.width!==w||c.height!==h){c.width=w;c.height=h;}}
+    g.viewport(0,0,c.width,c.height);g.useProgram(this.p);g.uniform3fv(this.locations.r,basis.right);g.uniform3fv(this.locations.u,basis.up);g.uniform3fv(this.locations.f,basis.forward);g.uniform1f(this.locations.t,Math.tan(hfov*Math.PI/360));g.uniform1f(this.locations.aspect,c.width/c.height);g.drawArrays(g.TRIANGLES,0,6);
+  }
+}
+
+const crcTable=Uint32Array.from({length:256},(_,i)=>{let c=i;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;return c>>>0;});
+function crc32(bytes){let c=0xffffffff;for(const b of bytes)c=crcTable[(c^b)&255]^(c>>>8);return (c^0xffffffff)>>>0;}
+async function createZip(entries){
+  const parts=[],central=[];let offset=0,size=0;const enc=new TextEncoder();
+  for(const entry of entries){
+    const name=enc.encode(entry.name),bytes=new Uint8Array(await entry.blob.arrayBuffer()),crc=crc32(bytes),n=bytes.length;
+    if(offset+n>=0xffffffff)throw Error('Archive trop volumineuse.');
+    const header=new Uint8Array(30+name.length),h=new DataView(header.buffer);
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x800,true);h.setUint16(12,0x5821,true);h.setUint32(14,crc,true);h.setUint32(18,n,true);h.setUint32(22,n,true);h.setUint16(26,name.length,true);header.set(name,30);
+    const cen=new Uint8Array(46+name.length),v=new DataView(cen.buffer);
+    v.setUint32(0,0x02014b50,true);v.setUint16(4,20,true);v.setUint16(6,20,true);v.setUint16(8,0x800,true);v.setUint16(14,0x5821,true);v.setUint32(16,crc,true);v.setUint32(20,n,true);v.setUint32(24,n,true);v.setUint16(28,name.length,true);v.setUint32(42,offset,true);cen.set(name,46);
+    parts.push(header,entry.blob);central.push(cen);offset+=header.length+n;size+=cen.length;
+  }
+  const end=new Uint8Array(22),v=new DataView(end.buffer);v.setUint32(0,0x06054b50,true);v.setUint16(8,entries.length,true);v.setUint16(10,entries.length,true);v.setUint32(12,size,true);v.setUint32(16,offset,true);
+  return new Blob([...parts,...central,end],{type:'application/zip'});
+}
+
+
+
+
+
+const $=id=>document.getElementById(id),targets=makeTargets(),captures=new Map(),gate=new HoldGate(1100);
+const atlas=document.createElement('canvas');atlas.width=1536;atlas.height=768;
+const atlasCtx=atlas.getContext('2d');
+const state={stream:null,raw:null,base:null,index:0,busy:false,paused:false,complete:false,demo:false,recal:false,modal:true,hfov:64,aspect:4/3,lastOrientation:-Infinity,lastMotion:-Infinity,speed:Infinity,motionSpeed:Infinity,signalAfterResume:0,epoch:0,zip:null,exported:false};
+let sphere=null,reviewSphere=null,demoViewer=null,worker=null,mosaic=null,frame=0,toastTimer,requestId=0;
+const pending=new Map();
+function toast(message){$('toast').textContent=message;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,5000);}
+function setText(id,text){if($(id).textContent!==text)$(id).textContent=text;}
+function instruction(title,detail=''){setText('instruction',title);setText('detail',detail);}
+function landscape(){return matchMedia('(orientation: landscape)').matches;}
+function screenAngle(){return Number.isFinite(screen.orientation?.angle)?screen.orientation.angle:(Number.isFinite(window.orientation)?window.orientation:0);}
+function currentBasis(){return state.raw?(state.base===null?state.raw:rebase(state.raw,state.base)):null;}
+function signalTime(){return Math.max(state.lastOrientation,state.lastMotion);}
+function currentSpeed(now){
+  if(state.demo)return now-state.lastOrientation<150?state.speed:0;
+  if(now-state.lastMotion<1500)return Math.max(state.motionSpeed,now-state.lastOrientation<250?state.speed:0);
+  return state.speed;
+}
+function modal(id,show=true){
+  $(id).hidden=!show;state.modal=!!document.querySelector('.modal:not([hidden])');gate.reset();
+  if(show){state.paused=true;render();requestAnimationFrame(()=>$(id).querySelector('button:not([hidden])')?.focus());}
+}
+function closeModal(id){modal(id,false);if(!state.modal&&!state.complete){state.paused=false;render();}}
+for(const b of document.querySelectorAll('[data-close]'))b.onclick=()=>closeModal(b.dataset.close);
+try{sphere=new SphereViewer($('sphere'));}catch(e){$('sphere').hidden=true;}
+try{
+  const url=URL.createObjectURL(new Blob([WORKER_SOURCE],{type:'text/javascript'}));
+  worker=new Worker(url);URL.revokeObjectURL(url);
+  worker.onmessage=({data})=>{const p=pending.get(data.id);if(!p)return;pending.delete(data.id);if(data.error)p.reject(Error(data.error));else p.resolve(data.pixels);};
+  worker.onerror=()=>{for(const p of pending.values())p.reject(Error('Aperçu indisponible. Les photos restent exportables.'));pending.clear();};
+}catch(e){mosaic=new Mosaic(atlas.width,atlas.height);}
+function resetMosaic(){atlasCtx.clearRect(0,0,atlas.width,atlas.height);if(worker)worker.postMessage({type:'reset',width:atlas.width,height:atlas.height});else mosaic=new Mosaic(atlas.width,atlas.height);updateTexture();}
+resetMosaic();
+async function addToMosaic(capture){
+  const source=await loadImage(capture.blob),small=document.createElement('canvas');small.width=720;small.height=Math.round(720/capture.aspect);const ctx=small.getContext('2d',{willReadFrequently:true});ctx.drawImage(source,0,0,small.width,small.height);
+  const data=ctx.getImageData(0,0,small.width,small.height).data,epoch=state.epoch;
+  let pixels;
+  if(worker){const id=++requestId;pixels=await new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});worker.postMessage({type:'add',id,data,width:small.width,height:small.height,basis:capture.basis,hfov:capture.hfov});});}
+  else{await new Promise(resolve=>setTimeout(resolve,0));mosaic.add(data,small.width,small.height,capture.basis,capture.hfov);pixels=mosaic.pixels();}
+  if(epoch===state.epoch){atlasCtx.putImageData(new ImageData(pixels,atlas.width,atlas.height),0,0);updateTexture();}
+}
+function updateTexture(){try{sphere?.upload(atlas);reviewSphere?.upload(atlas);}catch(e){toast('L’aperçu 3D est indisponible ; la carte 360° reste visible.');}drawMap();}
+function loadImage(blob){return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(blob);img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};img.onerror=()=>{URL.revokeObjectURL(url);reject(Error('Photo illisible'));};img.src=url;});}
+function canvasBlob(canvas,type='image/jpeg',quality=.95){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('Image non enregistrée')),type,quality));}
+function onOrientation(e){
+  if(state.demo||![e.alpha,e.beta,e.gamma].every(Number.isFinite))return;
+  const now=performance.now(),next=deviceBasis(e.alpha,e.beta,e.gamma,screenAngle());
+  const dt=(now-state.lastOrientation)/1000;
+  if(state.raw&&dt>.005&&dt<.5){const speed=Math.max(angle(next.forward,state.raw.forward),angle(next.up,state.raw.up))/dt;state.speed=Number.isFinite(state.speed)?state.speed*.55+speed*.45:speed;}else state.speed=0;
+  state.raw=next;state.lastOrientation=now;
+}
+function onMotion(e){
+  if(state.demo)return;
+  const rate=e.rotationRate;if(rate&&[rate.alpha,rate.beta,rate.gamma].every(Number.isFinite)){state.motionSpeed=Math.hypot(rate.alpha,rate.beta,rate.gamma);state.lastMotion=performance.now();}
+}
+window.addEventListener('deviceorientation',onOrientation,{passive:true});window.addEventListener('devicemotion',onMotion,{passive:true});
+async function permission(api){if(typeof api?.requestPermission==='function'){const p=await api.requestPermission();if(p!=='granted')throw Error('Autorisation des capteurs refusée. Autorise « Mouvement et orientation » pour ce site dans Safari.');}}
+async function start(){
+  if(!landscape())return;
+  if(state.demo&&captures.size){$('startStatus').textContent='Exporte ou efface la démonstration avant de démarrer une vraie session.';return;}
+  if(state.stream&&state.raw&&!state.demo){closeModal('introModal');return;}
+  if(!window.isSecureContext){$('startStatus').textContent='Ouvre le lien GitHub Pages en HTTPS dans Safari.';return;}
+  if(!navigator.mediaDevices?.getUserMedia){$('startStatus').textContent='Ouvre cette page dans Safari pour utiliser la caméra.';return;}
+  if(!window.DeviceOrientationEvent){$('startStatus').textContent='Ce navigateur ne fournit pas de capteurs d’orientation. La démonstration reste disponible.';return;}
+  $('start').disabled=true;$('demo').disabled=true;$('startStatus').textContent='Autorise les capteurs et la caméra…';
+  // Start permission calls within this user gesture, before awaiting either.
+  const orientationP=permission(window.DeviceOrientationEvent);
+  const motionP=permission(window.DeviceMotionEvent).catch(()=>{});
+  const cameraP=state.stream?Promise.resolve(state.stream):navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{exact:'environment'},width:{ideal:1920},height:{ideal:1440},aspectRatio:{ideal:4/3},frameRate:{ideal:30,max:30}}});
+  const results=await Promise.allSettled([orientationP,motionP,cameraP]);
+  const camera=results[2];
+  if(camera.status==='fulfilled'){
+    state.stream=camera.value;state.demo=false;$('video').srcObject=state.stream;
+    state.raw=null;state.lastOrientation=-Infinity;state.lastMotion=-Infinity;state.speed=Infinity;
+    $('demoBadge').hidden=true;$('demoControls').hidden=true;
+    try{await $('video').play();}catch(e){}
+    $('video').hidden=false;$('demoView').hidden=true;
+    state.stream.getVideoTracks()[0].addEventListener('ended',()=>{state.stream=null;state.paused=true;toast('Caméra arrêtée. Ouvre le guide pour la réactiver.');render();});
+  }
+  const failure=results.find(r=>r.status==='rejected');
+  if(failure){$('startStatus').textContent=failure.reason?.message||'Autorisation indisponible. Réessaie dans Safari.';}
+  else{
+    $('introModal').hidden=true;state.modal=false;state.paused=false;$('closeIntro').hidden=false;
+    if(captures.has(0)){recalImage=await loadImage(captures.get(0).blob);state.recal=true;state.complete=false;}
+    if(!state.raw)toast('Bouge légèrement le téléphone pour initialiser l’orientation.');
+    requestWake();
+  }
+  $('start').disabled=false;$('demo').disabled=false;render();
+}
+$('start').onclick=start;
+$('video').addEventListener('resize',()=>{if($('video').videoWidth&&$('video').videoHeight){state.aspect=$('video').videoWidth/$('video').videoHeight;gate.reset();}});
+let wakeLock;
+async function requestWake(){try{wakeLock=await navigator.wakeLock?.request('screen');}catch(e){}}
+function drawMap(){
+  const c=$('map'),ctx=c.getContext('2d'),rect=c.getBoundingClientRect();if(!rect.width||!rect.height)return;
+  const d=Math.min(devicePixelRatio||1,2),w=Math.round(rect.width*d),h=Math.round(rect.height*d);if(c.width!==w||c.height!==h){c.width=w;c.height=h;}
+  ctx.clearRect(0,0,w,h);ctx.drawImage(atlas,0,0,w,h);ctx.strokeStyle='#bddfc131';ctx.lineWidth=1;
+  for(let j=1;j<6;j++){ctx.beginPath();ctx.moveTo(0,j*h/6);ctx.lineTo(w,j*h/6);ctx.stroke();}
+  for(let j=1;j<12;j++){ctx.beginPath();ctx.moveTo(j*w/12,0);ctx.lineTo(j*w/12,h);ctx.stroke();}
+  for(const t of targets){const x=(t.yaw/360+.5)*w,y=(.5-t.pitch/180)*h,done=captures.has(t.id);ctx.beginPath();ctx.arc(clamp(x,3,w-3),clamp(y,3,h-3),t.id===state.index?3*d:1.7*d,0,Math.PI*2);ctx.fillStyle=done?'#c5e6bc':t.id===state.index?'#8bc7ff':'#d6e6da55';ctx.fill();}
+  const b=currentBasis();if(b&&state.base!==null){const a=angles(b),x=(a.yaw/360+.5)*w,y=(.5-a.pitch/180)*h;ctx.strokeStyle='white';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,5*d,0,Math.PI*2);ctx.stroke();}
+}
+function nextMissing(after=state.index){for(let n=1;n<=targets.length;n++){const i=(after+n)%targets.length;if(!captures.has(i))return i;}return after;}
+function render(){
+  const t=targets[state.index];setText('count',`${captures.size} / ${targets.length}`);$('bar').style.width=`${captures.size/targets.length*100}%`;
+  setText('stage',state.complete?'Tour terminé':t.label);const groups=targets.filter(x=>x.pitch===t.pitch),done=groups.filter(x=>captures.has(x.id)).length;
+  setText('stageDetail',state.complete?'Les photos sont prêtes à exporter':`${done} / ${groups.length} vues · ${t.pitch>0?'Incline vers le haut':t.pitch<0?'Incline vers le bas':'À hauteur des yeux'}`);
+  $('emptyPreview').hidden=captures.size>0;setText('previewStatus',`${captures.size} photo${captures.size>1?'s':''}`);
+  $('export').disabled=!captures.size||state.busy;$('pause').disabled=state.base===null||state.busy||state.complete;$('pause').textContent=state.paused?'Reprendre':'Pause';
+  $('fov').disabled=captures.size>0;$('recalibrate').disabled=!captures.has(0)||state.busy;$('reset').disabled=state.busy;
+  $('capture').textContent=state.recal?'Valider le recalage':state.complete?'Voir le panorama':state.base===null?'Fixer le départ · Photo 1':captures.has(state.index)?`Reprendre la photo ${state.index+1}`:$('auto').checked?'Capture automatique':`Capturer la photo ${state.index+1}`;
+  setText('cameraStatus',state.demo?'Démonstration · scène simulée':state.stream?'Caméra arrière · paysage':'Caméra inactive');
+  drawMap();
+}
+function readiness(now){
+  const b=currentBasis();if(!landscape()||state.modal||state.busy||state.paused||(!state.stream&&!state.demo)||!b||document.hidden)return null;
+  const source=state.demo?$('demoView'):$('video');if(!state.demo&&(!source.videoWidth||source.readyState<2||state.aspect<1))return null;
+  if(signalTime()<state.signalAfterResume&&!state.demo)return null;
+  const target=(state.base===null||state.recal)?{ray:basisFromView(angles(b).yaw,state.recal?angles(captures.get(0).basis).pitch:0).forward,pitch:0}:targets[state.index];
+  const a=alignment(b,target,now,state.demo?now:signalTime(),currentSpeed(now));return {...a,aligned:a.separation<4.5};
+}
+async function take(){
+  const ready=readiness(performance.now());if(!ready||!ready.aligned||!ready.level||!ready.stable||!ready.fresh||state.complete)return;
+  if(state.recal){state.base=angles(state.raw).yaw-angles(captures.get(0).basis).yaw;state.recal=false;state.complete=captures.size===targets.length;state.paused=state.complete;gate.reset();toast('Orientation recalée.');render();return;}
+  state.busy=true;gate.reset();const id=state.base===null?0:state.index,epoch=state.epoch;
+  const heading=state.base===null?angles(state.raw).yaw:state.base;
+  const basis=rebase(structuredClone(state.raw),heading),recordedAt=new Date().toISOString(),hfov=state.hfov;
+  let saved=false;
+  try{
+    const source=state.demo?$('demoView'):$('video'),c=document.createElement('canvas');
+    if(state.demo){demoViewer.draw(state.raw,state.hfov,false);c.width=source.width;c.height=source.height;}else{c.width=source.videoWidth;c.height=source.videoHeight;}
+    // Freeze the actual video pixels and pose before the asynchronous JPEG encoding.
+    c.getContext('2d').drawImage(source,0,0,c.width,c.height);
+    const blob=await canvasBlob(c);if(epoch!==state.epoch)return;
+    const old=captures.get(id),capture={blob,url:URL.createObjectURL(blob),basis,hfov,aspect:c.width/c.height,width:c.width,height:c.height,recordedAt};
+    if(old)URL.revokeObjectURL(old.url);captures.set(id,capture);saved=true;state.base=heading;state.zip=null;state.exported=false;
+    $('cameraPane').classList.remove('flash');void $('cameraPane').offsetWidth;$('cameraPane').classList.add('flash');
+    $('previewStatus').textContent='Assemblage…';
+    try{if(old){resetMosaic();for(const shot of captures.values())await addToMosaic(shot);}else await addToMosaic(capture);}catch(e){toast(e.message);}
+    if(captures.size===targets.length){state.complete=true;state.paused=true;toast('Toutes les directions sont capturées. Exporte ta session.');}
+    else{const before=targets[id].label;state.index=nextMissing(id);if(targets[state.index].label!==before)toast(targets[state.index].label+' : suis la nouvelle couronne.');}
+    if(navigator.vibrate)navigator.vibrate(40);
+  }catch(e){toast('Capture impossible : '+e.message);}
+  finally{state.busy=false;gate.reset();render();if(!saved)state.paused=true;}
+}
+$('capture').onclick=()=>state.complete?openReview():take();
+$('pause').onclick=()=>{state.paused=!state.paused;gate.reset();render();};$('auto').onchange=()=>{gate.reset();render();};
+function overlay(now){
+  const c=$('overlay'),rect=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);if(!rect.width||!rect.height)return;
+  const w=rect.width,h=rect.height;if(c.width!==Math.round(w*d)||c.height!==Math.round(h*d)){c.width=Math.round(w*d);c.height=Math.round(h*d);}
+  const ctx=c.getContext('2d');ctx.setTransform(d,0,0,d,0,0);ctx.clearRect(0,0,w,h);
+  const box=contain(w,h,state.aspect),b=currentBasis();
+  ctx.save();ctx.beginPath();ctx.rect(box.x,box.y,box.w,box.h);ctx.clip();
+  if(state.recal&&captures.has(0)){
+    const img=recalImage;if(img){ctx.globalAlpha=.4;ctx.drawImage(img,box.x,box.y,box.w,box.h);ctx.globalAlpha=1;}
+  }
+  const proj=ray=>{const p=project(ray,b,box.w,box.h,state.hfov);return p?{x:p.x+box.x,y:p.y+box.y}:null;};
+  if(b&&state.base!==null&&!state.recal){
+    // Meridians and latitude rings form the visible inside of the sphere.
+    ctx.strokeStyle='#c3e3cd30';ctx.lineWidth=1;
+    const curve=rays=>{ctx.beginPath();let previous=null;for(const ray of rays){const p=proj(ray);if(!p||p.x<box.x-30||p.x>box.x+box.w+30||p.y<box.y-30||p.y>box.y+box.h+30){previous=null;continue;}if(previous)ctx.lineTo(p.x,p.y);else ctx.moveTo(p.x,p.y);previous=p;}ctx.stroke();};
+    for(let pitch=-60;pitch<=60;pitch+=30)curve(Array.from({length:181},(_,i)=>basisFromView(i*2-180,pitch).forward));
+    for(let yaw=-180;yaw<180;yaw+=30)curve(Array.from({length:61},(_,i)=>basisFromView(yaw,i*3-90).forward));
+    for(const t of targets){
+      const p=proj(t.ray);if(!p||p.x<box.x+8||p.x>box.x+box.w-8||p.y<box.y+8||p.y>box.y+box.h-8)continue;
+      const done=captures.has(t.id),active=t.id===state.index&&!state.complete,r=active?18:done?10:7;
+      ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fillStyle=active?'#479cdf55':done?'#bbebbe88':'#d1dfd12e';ctx.fill();ctx.strokeStyle=active?'#8bc7ff':done?'#c5e6bc':'#e8f5e77a';ctx.lineWidth=active?3:1.5;ctx.stroke();
+      if(active||done){ctx.font=`600 ${active?12:10}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#f3fff4';ctx.fillText(done&&!active?'✓':String(t.id+1),p.x,p.y);}
+    }
+    const target=targets[state.index],p=proj(target.ray);
+    if(!state.complete&&(!p||p.x<box.x+25||p.x>box.x+box.w-25||p.y<box.y+30||p.y>box.y+box.h-40)){
+      let vx=dot(target.ray,b.right),vy=-dot(target.ray,b.up);
+      if(Math.hypot(vx,vy)<.01){const a=angles(b);vx=normAngle(target.yaw-a.yaw)>=0?1:-1;vy=0;}
+      const len=Math.hypot(vx,vy);vx/=len;vy/=len;
+      const scale=Math.min((box.w/2-32)/Math.max(.001,Math.abs(vx)),(box.h/2-48)/Math.max(.001,Math.abs(vy)));
+      const x=w/2+vx*scale,y=h/2+vy*scale;
+      ctx.save();ctx.translate(x,y);ctx.rotate(Math.atan2(vy,vx));ctx.fillStyle='#8bc7ff';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-8,-9);ctx.lineTo(-4,0);ctx.lineTo(-8,9);ctx.closePath();ctx.fill();ctx.restore();
+    }
+  }
+  const ready=readiness(now),isReady=ready?.aligned&&ready?.level;
+  const x=w/2,y=h/2;
+  if(b){const roll=angles(b).roll*D;ctx.save();ctx.translate(x,y);ctx.rotate(-roll);ctx.strokeStyle=Math.abs(roll)<10*D?'#c5e6bc88':'#efd09acc';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-48,0);ctx.lineTo(-27,0);ctx.moveTo(27,0);ctx.lineTo(48,0);ctx.stroke();ctx.restore();}
+  ctx.strokeStyle=isReady?'#c5e6bc':'#ffffffb0';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,23,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(x-5,y);ctx.lineTo(x+5,y);ctx.moveTo(x,y-5);ctx.lineTo(x,y+5);ctx.stroke();
+  if(gate.elapsed){ctx.strokeStyle='#c5e6bc';ctx.lineWidth=4;ctx.beginPath();ctx.arc(x,y,28,-Math.PI/2,-Math.PI/2+Math.PI*2*gate.elapsed/gate.duration);ctx.stroke();}
+  ctx.restore();
+}
+function guide(now){
+  const b=currentBasis(),ready=readiness(now),isActive=state.stream||state.demo;
+  $('capture').disabled=!state.complete&&!(ready?.aligned&&ready?.level&&ready?.stable&&ready?.fresh);
+  setText('sensorStatus',state.demo?'Orientation simulée':state.raw?(now-signalTime()<2500?'Orientation active':'Bouge légèrement le téléphone'):'En attente du capteur');
+  if(state.complete){instruction('Tour terminé','Regarde le panorama, puis exporte ta session.');gate.reset();return;}
+  if(state.recal){instruction('Aligne la caméra sur la photo en transparence','Replace-toi au même point, à hauteur des yeux, puis valide.');gate.reset();return;}
+  if(!landscape()||document.hidden||state.modal){gate.reset();return;}
+  if(state.busy){instruction('Photo prise · assemblage de l’aperçu','Garde l’objectif au même endroit.');gate.reset();return;}
+  if(!isActive){instruction('Active la caméra et l’orientation','Ouvre le guide pour commencer.');gate.reset();return;}
+  if(!b||(!state.demo&&signalTime()<state.signalAfterResume)){instruction('Bouge légèrement le téléphone','En attente d’une nouvelle mesure des capteurs.');gate.reset();return;}
+  if(!state.demo&&state.aspect<1){instruction('Attends que la caméra passe en paysage','Si nécessaire, réactive la caméra depuis le guide.');gate.reset();return;}
+  if(state.paused){instruction('Parcours en pause','Appuie sur Reprendre pour continuer.');gate.reset();return;}
+  if(!ready?.fresh){instruction('Réveille le capteur','Bouge légèrement le téléphone, puis réaligne la cible.');gate.reset();return;}
+  if(state.base===null){
+    instruction(ready?.aligned&&ready.level?'Prends la première photo':'Vise devant toi, à l’horizontale',ready?.aligned&&ready.level?'Choisis un repère facile à retrouver et fixe le départ.':'Tiens le téléphone droit, en paysage. Le trait indique son inclinaison.');gate.reset();return;
+  }
+  const target=targets[state.index],a=angles(b);
+  if(!ready.level){instruction('Redresse le téléphone','Garde le cadre horizontal.');gate.reset();return;}
+  if(!ready.aligned){
+    const dy=normAngle(target.yaw-a.yaw),dp=target.pitch-a.pitch,parts=[];
+    if(Math.abs(target.pitch)<80&&Math.abs(dy)*Math.cos(target.pitch*D)>5)parts.push(`${dy>0?'Tourne à droite':'Tourne à gauche'} ${Math.round(Math.abs(dy))}°`);
+    if(Math.abs(dp)>3)parts.push(`${dp>0?'Monte':'Descends'} ${Math.round(Math.abs(dp))}°`);
+    instruction(parts.join(' · ')||'Centre le point bleu',`Vue ${state.index+1} · ${target.label}`);gate.reset();return;
+  }
+  if(!ready.stable){instruction('Ralentis, puis reste immobile','La cible est alignée.');gate.reset();return;}
+  const auto=$('auto').checked&&!captures.has(state.index);
+  if(auto){instruction('Parfait · reste immobile',`Photo dans ${Math.max(.1,(gate.duration-gate.elapsed)/1000).toFixed(1)} s`);if(gate.update(now,true))take();}
+  else{instruction('Cible alignée','Appuie sur Capturer pour enregistrer cette direction.');gate.reset();}
+}
+let previousTick=0;
+function tick(now){requestAnimationFrame(tick);if(now-previousTick<32)return;previousTick=now;guide(now);overlay(now);
+  const b=currentBasis()||basisFromView();if(state.demo)demoViewer?.draw(state.raw,state.hfov,false);
+  sphere?.draw(b,85);if(!$('reviewModal').hidden)reviewSphere?.draw(basisFromView(reviewYaw,reviewPitch),85);
+  if(++frame%6===0)drawMap();
+}
 requestAnimationFrame(tick);
-function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),30000)}
-$('export').onclick=()=>{if(!captures.size)return alert('Aucune photo capturée');const manifest={app:'HDRI Atelier V2.2',createdAt:new Date().toISOString(),note:'JPEG SDR, orientation approximative; capteurs non calibrés pour une pose optique de précision',base,targets:targets.map((t,i)=>({...t,index:i,filename:captures.has(i)?`capture_${String(i+1).padStart(2,'0')}.jpg`:null,orientation:captures.get(i)?.orientation||null,recordedAt:captures.get(i)?.recordedAt||null}))};download(new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'}),'manifest.json');for(const [i,c] of captures)download(c.blob,`capture_${String(i+1).padStart(2,'0')}.jpg`);alert('Vérifie que toutes les images sont présentes dans Fichiers > Téléchargements.')};
-$('reset').onclick=()=>{if(confirm('Supprimer toutes les captures de cette session ?')){for(const c of captures.values())URL.revokeObjectURL(c.url);captures.clear();index=0;base=null;hold=0;render()}};if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});render();</script></body></html>
+$('help').onclick=()=>{$('closeIntro').hidden=!(state.stream||state.demo);modal('introModal');};$('closeIntro').onclick=()=>closeModal('introModal');
+$('settings').onclick=()=>modal('settingsModal');
+$('fov').oninput=()=>{if(captures.size)return;state.hfov=Number($('fov').value);$('fovLabel').textContent=state.hfov+'°';};
+function resetSession(){
+  if(state.busy)return;if(captures.size&&!confirm('Effacer les photos de cette page ? Exporte-les avant de commencer une nouvelle session.'))return;
+  state.epoch++;for(const c of captures.values())URL.revokeObjectURL(c.url);captures.clear();state.base=null;state.index=0;state.complete=false;state.recal=false;state.zip=null;state.exported=false;state.paused=false;gate.reset();resetMosaic();closeModal('settingsModal');render();
+}
+$('reset').onclick=resetSession;
+let recalImage=null;
+$('recalibrate').onclick=()=>{closeModal('settingsModal');modal('recalModal');};
+$('beginRecal').onclick=async()=>{recalImage=await loadImage(captures.get(0).blob);closeModal('recalModal');state.recal=true;state.complete=false;state.paused=false;render();};
+let reviewYaw=0,reviewPitch=0;
+function openReview(){
+  const a=angles(currentBasis()||basisFromView());reviewYaw=a.yaw;reviewPitch=a.pitch;
+  modal('reviewModal');
+  if(!reviewSphere){try{reviewSphere=new SphereViewer($('reviewSphere'));reviewSphere.upload(atlas);}catch(e){toast('Vue 3D indisponible sur ce navigateur. Consulte la carte 360°.');}}
+  $('thumbs').replaceChildren();for(const [id,c] of [...captures].sort((a,b)=>a[0]-b[0])){
+    const button=document.createElement('button');button.className='thumb';button.title=`Reprendre la photo ${id+1}`;
+    const img=new Image();img.src=c.url;img.alt=`Photo ${id+1}`;const label=document.createElement('span');label.textContent=`${id+1} · ↻`;button.append(img,label);
+    button.onclick=()=>{state.index=id;state.complete=false;closeModal('reviewModal');state.paused=false;gate.reset();render();toast('Vise le point bleu, puis appuie sur Reprendre.');};$('thumbs').append(button);
+  }
+}
+$('expand').onclick=openReview;
+let drag=null;
+$('reviewView').onpointerdown=e=>{drag={x:e.clientX,y:e.clientY,yaw:reviewYaw,pitch:reviewPitch};$('reviewView').setPointerCapture(e.pointerId);};
+$('reviewView').onpointermove=e=>{if(drag){reviewYaw=normAngle(drag.yaw-(e.clientX-drag.x)*.2);reviewPitch=clamp(drag.pitch+(e.clientY-drag.y)*.2,-89,89);}};
+$('reviewView').onpointerup=$('reviewView').onpointercancel=()=>drag=null;
+function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
+$('export').onclick=()=>{modal('exportModal');$('exportInfo').textContent=`${captures.size} photo${captures.size>1?'s':''} sur ${targets.length} directions. ${state.complete?'Le parcours est terminé.':'Tu peux exporter une session partielle.'}`;$('buildZip').hidden=false;$('downloadZip').hidden=true;$('shareZip').hidden=true;$('exportStatus').textContent='';};
+function sessionManifest(){return {app:'HDRI Atelier',version:'3.0',createdAt:new Date().toISOString(),imageType:'JPEG SDR',demo:state.demo,projection:'equirectangular preview from capture orientations; no feature registration or HDR merge',basisConvention:'x right, y forward, z up; camera forward = rear lens axis',hfovEstimated:state.hfov,baseHeading:state.base,preview:{width:atlas.width,height:atlas.height,quality:'approximate'},targets:targets.map(t=>{const c=captures.get(t.id);return {index:t.id,label:t.label,yaw:t.yaw,pitch:t.pitch,filename:c?`capture_${String(t.id+1).padStart(2,'0')}.jpg`:null,...(c?{basis:c.basis,hfov:c.hfov,width:c.width,height:c.height,recordedAt:c.recordedAt}:{} )};})};}
+$('buildZip').onclick=async()=>{
+  $('buildZip').disabled=true;$('exportStatus').textContent='Préparation des photos et de l’aperçu…';
+  try{
+    const entries=[...captures].sort((a,b)=>a[0]-b[0]).map(([id,c])=>({name:`capture_${String(id+1).padStart(2,'0')}.jpg`,blob:c.blob}));
+    entries.push({name:'manifest.json',blob:new Blob([JSON.stringify(sessionManifest(),null,2)],{type:'application/json'})});
+    entries.push({name:'apercu_panorama_SDR.png',blob:await canvasBlob(atlas,'image/png')});
+    entries.push({name:'LIRE_MOI.txt',blob:new Blob([`HDRI Atelier V3.0\n${state.demo?'SESSION DE DEMONSTRATION — images simulées.\n':''}${captures.size}/${targets.length} directions.\nPhotos JPEG SDR. L’aperçu est une projection équirectangulaire à partir des capteurs et d’un angle de champ estimé. Aucun recalage automatique des détails, aucune fusion HDR : raccords approximatifs et zones manquantes possibles. Les zones transparentes sont non couvertes. Pour la qualité finale, assembler les images originales dans un logiciel panoramique.\n`],{type:'text/plain'})});
+    state.zip=await createZip(entries);state.zipName=`HDRI_Atelier_${state.demo?'DEMO_':''}${new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)}.zip`;
+    $('buildZip').hidden=true;$('downloadZip').hidden=false;
+    const file=new File([state.zip],state.zipName,{type:'application/zip'});$('shareZip').hidden=!navigator.canShare?.({files:[file]});
+    $('exportStatus').textContent=`Prêt · ${(state.zip.size/1024/1024).toFixed(1)} Mo. Télécharge ou enregistre le ZIP dans Fichiers.`;
+  }catch(e){$('exportStatus').textContent='Export impossible : '+e.message;}finally{$('buildZip').disabled=false;}
+};
+$('downloadZip').onclick=()=>{if(state.zip){download(state.zip,state.zipName);state.exported=true;}};
+$('shareZip').onclick=async()=>{try{await navigator.share({files:[new File([state.zip],state.zipName,{type:'application/zip'})],title:'HDRI Atelier'});state.exported=true;}catch(e){if(e.name!=='AbortError')$('exportStatus').textContent='Le partage a échoué ; utilise Télécharger.';}};
+function makeDemoTexture(){
+  const c=document.createElement('canvas');c.width=1536;c.height=768;const x=c.getContext('2d'),colors=['#b7c9ba','#ccba9d','#a6bec4','#c6b5a4'];
+  x.fillStyle='#c7d4cd';x.fillRect(0,0,c.width,c.height/3);x.fillStyle='#7f8d76';x.fillRect(0,c.height*2/3,c.width,c.height/3);
+  for(let i=0;i<4;i++){x.fillStyle=colors[i];x.fillRect(i*384,256,384,256);x.fillStyle='#1c3a2d';x.font='bold 34px sans-serif';x.textAlign='center';x.fillText(['OUEST','DÉPART','EST','ARRIÈRE'][i],i*384+192,375);for(let j=0;j<5;j++){x.fillStyle=j%2?'#f3dfb8':'#507769';x.fillRect(i*384+30+j*67,410,45,50);}}
+  x.strokeStyle='#253e3844';x.lineWidth=3;for(let i=0;i<25;i++){x.beginPath();x.moveTo(i*64,0);x.lineTo(i*64,768);x.stroke();}for(let i=0;i<13;i++){x.beginPath();x.moveTo(0,i*64);x.lineTo(1536,i*64);x.stroke();}
+  x.fillStyle='#183a2b';x.font='bold 36px sans-serif';x.textAlign='center';x.fillText('PLAFOND',768,125);x.fillText('SOL',768,650);return c;
+}
+$('demo').onclick=()=>{
+  if(captures.size&&!state.demo){toast('Exporte et efface la session avant de lancer la démonstration.');return;}
+  try{
+    if(!demoViewer){$('demoView').width=960;$('demoView').height=720;demoViewer=new SphereViewer($('demoView'));demoViewer.upload(makeDemoTexture());}
+    state.stream?.getTracks().forEach(t=>t.stop());state.stream=null;state.demo=true;state.aspect=4/3;state.raw=basisFromView(Number($('demoYaw').value),Number($('demoPitch').value));state.lastOrientation=performance.now();state.speed=0;
+    $('demoView').hidden=false;$('video').hidden=true;$('demoBadge').hidden=false;$('demoControls').hidden=false;
+    closeModal('introModal');state.paused=false;render();
+  }catch(e){$('startStatus').textContent='Démonstration indisponible : '+e.message;}
+};
+function changeDemo(){const now=performance.now(),next=basisFromView(Number($('demoYaw').value),Number($('demoPitch').value));state.speed=Math.max(angle(next.forward,state.raw.forward),angle(next.up,state.raw.up))/Math.max(.02,(now-state.lastOrientation)/1000);state.raw=next;state.lastOrientation=now;gate.reset();}
+$('demoYaw').oninput=$('demoPitch').oninput=changeDemo;
+function onScreenChange(){gate.reset();state.signalAfterResume=performance.now();if(state.raw&&!state.demo){state.raw=null;state.lastOrientation=-Infinity;}if(state.demo)state.signalAfterResume=0;}
+window.addEventListener('orientationchange',onScreenChange);screen.orientation?.addEventListener('change',onScreenChange);
+window.addEventListener('resize',()=>gate.reset());
+// Interruption always requires an explicit resume; a stationary stale reading cannot trigger a photo.
+document.addEventListener('visibilitychange',()=>{gate.reset();if(document.hidden){state.paused=true;state.signalAfterResume=performance.now();}else{requestWake();}render();});
+window.addEventListener('pagehide',()=>{gate.reset();state.paused=true;});
+window.addEventListener('beforeunload',e=>{if(captures.size&&!state.exported){e.preventDefault();e.returnValue='';}});
+if('serviceWorker' in navigator&&location.protocol!=='file:'){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(reg=>reg.update()).catch(()=>{});}
+render();
+
+</script>
+</body></html>
