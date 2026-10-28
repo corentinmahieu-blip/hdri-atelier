@@ -261,7 +261,7 @@ class FinalEngine {
    }
    if(iter%10===9){
     const current=fovCost(fovOffset);let best=current,next=fovOffset;
-    for(const candidate of [fovOffset-1,fovOffset+1])if(candidate>=-6&&candidate<=6&&frames.every(f=>f.hfov+candidate>=45&&f.hfov+candidate<=95)){const value=fovCost(candidate);if(value<best*.999){best=value;next=candidate;}}
+    for(const candidate of [fovOffset-1,fovOffset+1])if(candidate>=-6&&candidate<=6&&frames.every(f=>f.hfov+candidate>=45&&f.hfov+candidate<=120)){const value=fovCost(candidate);if(value<best*.999){best=value;next=candidate;}}
     fovOffset=next;
    }
    if(iter%5===0)progress(iter+1,90);
