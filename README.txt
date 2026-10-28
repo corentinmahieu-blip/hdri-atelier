@@ -1,11 +1,3 @@
-HDRI Atelier V3.4 — Scan continu expérimental
-
-INSTALLATION
-Décompresser le ZIP, remplacer à la racine du dépôt GitHub ces six fichiers :
-index.html, sw.js, manifest.webmanifest, final-worker.js, opencv.js, LICENSE-OPENCV.txt.
-Les dossiers src et tests ne sont pas nécessaires pour utiliser le site.
-Attendre la publication GitHub Pages puis vérifier V3.4 dans Safari.
-
 UTILISATION
 Tenir l’iPhone en paysage. Activer caméra et capteurs. Fixer le départ une fois.
 Laisser « Scan continu » coché. Balayer lentement les couronnes autour de l’objectif,
