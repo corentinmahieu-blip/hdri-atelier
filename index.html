@@ -9,9 +9,9 @@
 .file-button input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 </style></head>
 <body>
-<div class="rotate-screen"><div><div class="eyebrow">CoMa · HDRI Atelier V3.3</div><div class="rotate-icon" aria-hidden="true"></div><h2>Tourne ton téléphone.</h2><p>Le parcours se fait en paysage, avec le panorama visible à côté de la caméra.</p><small>Si l’écran ne tourne pas, désactive le verrouillage de rotation dans le Centre de contrôle de l’iPhone.</small></div></div>
+<div class="rotate-screen"><div><div class="eyebrow">CoMa · HDRI Atelier V3.4</div><div class="rotate-icon" aria-hidden="true"></div><h2>Tourne ton téléphone.</h2><p>Le parcours se fait en paysage, avec le panorama visible à côté de la caméra.</p><small>Si l’écran ne tourne pas, désactive le verrouillage de rotation dans le Centre de contrôle de l’iPhone.</small></div></div>
 <main class="app">
- <header class="topbar"><div class="brand"><h1>HDRI Atelier</h1><span class="version">V3.3</span><span class="eyebrow">CoMa / Capture environnement</span></div><div class="top-actions"><span id="demoBadge" class="pill demo" hidden>DÉMONSTRATION</span><button id="help" class="quiet small">Guide</button><button id="settings" class="quiet small">Réglages</button></div></header>
+ <header class="topbar"><div class="brand"><h1>HDRI Atelier</h1><span class="version">V3.4</span><span class="eyebrow">CoMa / Capture environnement</span></div><div class="top-actions"><span id="demoBadge" class="pill demo" hidden>DÉMONSTRATION</span><button id="help" class="quiet small">Guide</button><button id="settings" class="quiet small">Réglages</button></div></header>
  <div class="workspace">
   <section id="cameraPane" class="camera-pane" aria-label="Caméra et guidage sur la sphère">
    <video id="video" autoplay muted playsinline></video><canvas id="demoView" hidden></canvas><canvas id="overlay"></canvas>
@@ -28,12 +28,12 @@
    <button id="export" class="small" disabled>Exporter la session</button>
   </aside>
  </div>
- <footer class="bottom"><label class="auto"><input id="auto" type="checkbox" checked>Capture auto</label><div id="demoControls" class="demo-controls" hidden><label>Tourner<input id="demoYaw" type="range" min="-180" max="180" value="0" aria-label="Direction de démonstration"></label><label>Incliner<input id="demoPitch" type="range" min="-90" max="90" value="0" aria-label="Inclinaison de démonstration"></label></div><div class="actions"><button id="pause" class="quiet" disabled>Pause</button><button id="capture" class="primary" disabled>Fixer le départ · Photo 1</button></div></footer>
+ <footer class="bottom"><label class="auto"><input id="auto" type="checkbox" checked>Scan continu</label><div id="demoControls" class="demo-controls" hidden><label>Tourner<input id="demoYaw" type="range" min="-180" max="180" value="0" aria-label="Direction de démonstration"></label><label>Incliner<input id="demoPitch" type="range" min="-90" max="90" value="0" aria-label="Inclinaison de démonstration"></label></div><div class="actions"><button id="pause" class="quiet" disabled>Pause</button><button id="capture" class="primary" disabled>Fixer le départ · Photo 1</button></div></footer>
 </main>
 <section id="introModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="introTitle"><div class="modal-card">
  <div class="modal-head"><span class="eyebrow">Un tour complet · 54 directions</span><button id="closeIntro" class="quiet small" hidden>Fermer</button></div>
- <div class="intro-content"><div><h2 id="introTitle">Photographie tout<br>autour de toi.</h2><p>Vise le point bleu. Tourne doucement : l’app compare trois images de la vidéo, puis ajoute la prise à l’aperçu du panorama.</p><p>Garde l’objectif au même endroit, même quand tu te tournes.</p></div>
- <ol class="steps"><li><b>1</b><div><strong>Active la caméra et les capteurs</strong>Autorise les demandes de Safari.</div></li><li><b>2</b><div><strong>Vise devant toi, à l’horizontale</strong>La première photo définit le départ.</div></li><li><b>3</b><div><strong>Suis la sphère de points</strong>L’horizon, le haut, puis le bas.</div></li></ol></div>
+ <div class="intro-content"><div><h2 id="introTitle">Photographie tout<br>autour de toi.</h2><p>Démarre une fois, puis balaye lentement les couronnes sans t’arrêter à chaque point. L’app choisit les images au passage des zones manquantes et remplit l’aperçu.</p><p>Garde l’objectif au même endroit, même quand tu te tournes.</p></div>
+ <ol class="steps"><li><b>1</b><div><strong>Active la caméra et les capteurs</strong>Autorise les demandes de Safari.</div></li><li><b>2</b><div><strong>Vise devant toi, à l’horizontale</strong>La première photo définit le départ.</div></li><li><b>3</b><div><strong>Balaye les couronnes</strong>L’horizon, le haut, puis le bas.</div></li></ol></div>
  <div class="modal-actions"><button id="start" class="primary">Activer et commencer</button><button id="demo" class="quiet">Essayer la démonstration</button><button id="importAtStart" class="quiet">Assembler un ZIP existant</button></div><div id="recoverActions" class="modal-actions" hidden><button id="recoverReview">Voir la session retrouvée</button><button id="recoverExport">Exporter les photos retrouvées</button></div><div id="startStatus" class="status-box" role="status"></div>
  <p class="muted" style="margin-top:12px"><span id="saveStatus">Sauvegarde locale automatique · export conseillé</span></p>
 </div></section>
@@ -315,6 +315,38 @@ async function selectVideoFrame(snapshot,valid,wait,count=3){
   return best;
 }
 
+// Leaving a capture zone ends selection; lifecycle interruption cancels it.
+async function selectSweepFrame(snapshot,valid,eligible,wait,count=3){
+  let best=null;
+  for(let i=0;i<count;i++){
+    if(i)await wait();
+    if(!valid())throw Error('Capture interrompue.');
+    if(!eligible())break;
+    const candidate=snapshot();
+    if(!best||candidate.score>best.score)best=candidate;
+  }
+  return best;
+}
+
+function nearestMissingTarget(targets,captures,forward,maxAngle=6){
+  let id=null,best=Math.cos(maxAngle*Math.PI/180);
+  for(const target of targets){
+    if(captures.has(target.id))continue;
+    const similarity=target.ray.reduce((sum,v,i)=>sum+v*forward[i],0);
+    if(similarity>best){best=similarity;id=target.id;}
+  }
+  return id;
+}
+
+function nextVideoFrame(video){
+  return new Promise(resolve=>{
+    let handle,timer,done=false;
+    const finish=()=>{if(done)return;done=true;clearTimeout(timer);if(handle!==undefined)video.cancelVideoFrameCallback?.(handle);resolve();};
+    timer=setTimeout(finish,100);
+    if(video.requestVideoFrameCallback)handle=video.requestVideoFrameCallback(finish);
+  });
+}
+
 
 // Reads uncompressed ZIP sessions produced by HDRI Atelier. It never modifies
 // the active IndexedDB session and validates all bytes before processing.
@@ -450,17 +482,17 @@ try{
 function resetMosaic(){localRegistrar=new ImageRegistrar();atlasCtx.clearRect(0,0,atlas.width,atlas.height);if(worker)worker.postMessage({type:'reset',width:atlas.width,height:atlas.height});else mosaic=new Mosaic(atlas.width,atlas.height);updateTexture();}
 resetMosaic();
 async function addToMosaic(capture,skipRegistration=false){
-  const source=await loadImage(capture.blob),small=document.createElement('canvas');small.width=Math.min(1600,capture.width);small.height=Math.round(small.width/capture.aspect);const ctx=small.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,small.width,small.height);
+  const source=await loadImage(capture.blob),small=document.createElement('canvas');small.width=Math.min(960,capture.width);small.height=Math.round(small.width/capture.aspect);const ctx=small.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingQuality='high';ctx.drawImage(source,0,0,small.width,small.height);
   const data=ctx.getImageData(0,0,small.width,small.height).data,epoch=state.epoch;
   let result;
-  if(worker){const id=++requestId;result=await new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});worker.postMessage({type:'add',id,data,width:small.width,height:small.height,basis:capture.basis,hfov:capture.hfov,skipRegistration});});}
+  if(worker){const id=++requestId;result=await new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});worker.postMessage({type:'add',id,data,width:small.width,height:small.height,basis:capture.basis,hfov:capture.hfov,skipRegistration},[data.buffer]);});}
   else{await new Promise(resolve=>setTimeout(resolve,0));const registration=localRegistrar.register(data,small.width,small.height,capture.basis,capture.hfov,skipRegistration);mosaic.add(data,small.width,small.height,registration.basis,capture.hfov);result={pixels:mosaic.pixels(),registration};}
   if(epoch===state.epoch){
     if(!skipRegistration){capture.sensorBasis=capture.basis;capture.basis=result.registration.basis;capture.registration=result.registration;}
     atlasCtx.putImageData(new ImageData(result.pixels,atlas.width,atlas.height),0,0);updateTexture();
   }
 }
-function savedMeta(){return {version:'3.3',base:state.base,hfov:state.hfov,demo:state.demo,updatedAt:new Date().toISOString()};}
+function savedMeta(){return {version:'3.4',base:state.base,hfov:state.hfov,demo:state.demo,updatedAt:new Date().toISOString()};}
 async function persistCapture(id,capture){
   try{await sessionStore.save(id,capture,savedMeta());state.storageOK=true;setText('saveStatus','Photos sauvegardées sur cet appareil');}
   catch(e){state.storageOK=false;setText('saveStatus','Sauvegarde indisponible · exporte la session');toast('Sauvegarde impossible : exporte avant de fermer la page.');}
@@ -553,7 +585,7 @@ function render(){
   $('export').disabled=!captures.size||state.busy||queued>0;$('pause').disabled=state.base===null||state.busy||state.complete;$('pause').textContent=state.paused?'Reprendre':'Pause';
   const last=[...captures.values()].at(-1);const matched=[...captures.values()].filter(c=>c.registration?.accepted).length;setText('alignmentStatus',captures.size?`${matched} vues recalées · autres raccords à vérifier`:'Recherche de repères entre les photos');
   $('fov').disabled=captures.size>0;$('recalibrate').disabled=!captures.has(0)||state.busy||queued>0;$('reset').disabled=state.busy||queued>0;
-  $('capture').textContent=state.recal?'Valider le recalage':state.complete?'Voir le panorama':state.base===null?'Fixer le départ · Photo 1':captures.has(state.index)?`Reprendre la photo ${state.index+1}`:$('auto').checked?'Capture automatique':`Capturer la photo ${state.index+1}`;
+  $('capture').textContent=state.recal?'Valider le recalage':state.complete?'Voir le panorama':state.base===null?'Fixer le départ · Photo 1':captures.has(state.index)?`Reprendre la photo ${state.index+1}`:$('auto').checked?'Scan continu':`Capturer la photo ${state.index+1}`;
   setText('cameraStatus',state.demo?'Démonstration · scène simulée':state.stream?'Caméra arrière · paysage':'Caméra inactive');
   drawMap();
 }
@@ -565,6 +597,8 @@ function readiness(now,allowBusy=false){
   const a=alignment(b,target,now,state.demo?now:signalTime(),currentSpeed(now));return {...a,stable:currentSpeed(now)<10,aligned:a.separation<6};
 }
 async function take(){
+  const sweep=$('auto').checked&&state.base!==null&&!state.recal&&!captures.has(state.index);
+  let interrupted=false;
   const ready=readiness(performance.now());if(!ready||!ready.aligned||!ready.level||!ready.stable||!ready.fresh||state.complete)return;
   if(state.recal){state.base=angles(state.raw).yaw-angles((captures.get(0).sensorBasis||captures.get(0).basis)).yaw;state.recal=false;state.complete=captures.size===targets.length;state.paused=state.complete;gate.reset();toast('Orientation recalée.');render();return;}
   state.busy=true;gate.reset();const id=state.base===null?0:state.index,epoch=state.epoch;
@@ -574,7 +608,7 @@ async function take(){
     const source=state.demo?$('demoView'):$('video');
     const probe=document.createElement('canvas');probe.width=320;probe.height=240;
     const probeCtx=probe.getContext('2d',{willReadFrequently:true});
-    const chosen=await selectVideoFrame(()=>{
+    const snapshot=()=>{
       const c=document.createElement('canvas');
       if(state.demo){demoViewer.draw(state.raw,state.hfov,false);c.width=source.width;c.height=source.height;}
       else{c.width=source.videoWidth;c.height=source.videoHeight;}
@@ -583,21 +617,27 @@ async function take(){
       probe.height=Math.round(probe.width*c.height/c.width);
       probeCtx.drawImage(c,0,0,probe.width,probe.height);
       return {canvas:c,raw,recordedAt,score:frameSharpness(probeCtx.getImageData(0,0,probe.width,probe.height).data,probe.width,probe.height)};
-    },()=>{const r=readiness(performance.now(),true);return epoch===state.epoch&&r?.aligned&&r.level&&r.stable&&r.fresh;},()=>new Promise(resolve=>setTimeout(resolve,110)),state.demo?1:3);
+    };
+    const valid=()=>epoch===state.epoch&&!state.paused&&!state.modal&&!document.hidden&&landscape();
+    const eligible=()=>{const r=readiness(performance.now(),true);return r?.aligned&&r.level&&r.stable&&r.fresh;};
+    const chosen=sweep
+      ?await selectSweepFrame(snapshot,()=>{const ok=valid();if(!ok)interrupted=true;return ok;},eligible,()=>nextVideoFrame(source),state.demo?1:3)
+      :await selectVideoFrame(snapshot,()=>valid()&&eligible(),()=>nextVideoFrame(source),state.demo?1:3);
+    if(!chosen)return;
     const c=chosen.canvas,heading=state.base===null?angles(chosen.raw).yaw:state.base;
     const basis=rebase(chosen.raw,heading),recordedAt=chosen.recordedAt;
     const blob=await canvasBlob(c);if(epoch!==state.epoch)return;
-    const old=captures.get(id),capture={blob,url:URL.createObjectURL(blob),basis,hfov,aspect:c.width/c.height,width:c.width,height:c.height,recordedAt,sharpnessScore:chosen.score,frameSelection:state.demo?'single':'best-of-3'};
+    const old=captures.get(id),capture={blob,url:URL.createObjectURL(blob),basis,hfov,aspect:c.width/c.height,width:c.width,height:c.height,recordedAt,sharpnessScore:chosen.score,frameSelection:state.demo?'single':sweep?'continuous-best-of-3':'best-of-3'};
     if(old)URL.revokeObjectURL(old.url);captures.set(id,capture);saved=true;state.base=heading;state.zip=null;state.exported=false;
     await persistCapture(id,capture);
-    $('cameraPane').classList.remove('flash');void $('cameraPane').offsetWidth;$('cameraPane').classList.add('flash');
+    if(!sweep){$('cameraPane').classList.remove('flash');void $('cameraPane').offsetWidth;$('cameraPane').classList.add('flash');}
     $('previewStatus').textContent='Assemblage…';
     enqueueCapture(id,capture,old);
     if(captures.size===targets.length){state.complete=true;state.paused=true;toast('Toutes les directions sont capturées. Exporte ta session.');}
     else{const before=targets[id].label;state.index=nextMissing(id);if(targets[state.index].label!==before)toast(targets[state.index].label+' : suis la nouvelle couronne.');}
-    if(navigator.vibrate)navigator.vibrate(40);
-  }catch(e){toast('Capture impossible : '+e.message);}
-  finally{state.busy=false;gate.reset();render();if(!saved)state.paused=true;}
+    if(!sweep&&navigator.vibrate)navigator.vibrate(40);
+  }catch(e){interrupted=true;toast('Capture impossible : '+e.message);}
+  finally{state.busy=false;gate.reset();render();if(!saved&&(!sweep||interrupted))state.paused=true;}
 }
 $('capture').onclick=()=>state.complete?openReview():take();
 $('pause').onclick=()=>{state.paused=!state.paused;gate.reset();render();};$('auto').onchange=()=>{gate.reset();render();};
@@ -641,14 +681,19 @@ function overlay(now){
   ctx.restore();
 }
 function guide(now){
-  const b=currentBasis(),ready=readiness(now),isActive=state.stream||state.demo;
+  const b=currentBasis();
+  if(b&&state.base!==null&&$('auto').checked&&!state.busy&&!state.paused&&!state.modal&&!state.recal&&!state.complete){
+    const candidate=nearestMissingTarget(targets,captures,b.forward);
+    if(candidate!==null&&candidate!==state.index){state.index=candidate;render();}
+  }
+  const ready=readiness(now),isActive=state.stream||state.demo;
   $('capture').disabled=!state.complete&&!(ready?.aligned&&ready?.level&&ready?.stable&&ready?.fresh);
   setText('sensorStatus',state.demo?'Orientation simulée':state.raw?(now-signalTime()<2500?'Orientation active':'Bouge légèrement le téléphone'):'En attente du capteur');
   if(state.complete){instruction('Tour terminé','Regarde le panorama, puis exporte ta session.');gate.reset();return;}
   if(state.recal){instruction('Aligne la caméra sur la photo en transparence','Replace-toi au même point, à hauteur des yeux, puis valide.');gate.reset();return;}
   if(!landscape()||document.hidden||state.modal){gate.reset();return;}
   if(queued>=3){instruction('Ralentis · traitement en cours','La capture reprend dès qu’une place se libère.');gate.reset();return;}
-  if(state.busy){instruction('Sélection de la photo','Continue doucement, sans déplacer l’objectif.');gate.reset();return;}
+  if(state.busy){instruction('Scan en cours','Continue lentement autour de l’objectif.');gate.reset();return;}
   if(!isActive){instruction('Active la caméra et l’orientation','Ouvre le guide pour commencer.');gate.reset();return;}
   if(!b||(!state.demo&&signalTime()<state.signalAfterResume)){instruction('Bouge légèrement le téléphone','En attente d’une nouvelle mesure des capteurs.');gate.reset();return;}
   if(!state.demo&&state.aspect<1){instruction('Attends que la caméra passe en paysage','Si nécessaire, réactive la caméra depuis le guide.');gate.reset();return;}
@@ -667,7 +712,7 @@ function guide(now){
   }
   if(!ready.stable){instruction('Ralentis','Tourne doucement pour limiter le flou.');gate.reset();return;}
   const auto=$('auto').checked&&!captures.has(state.index);
-  if(auto){instruction('Continue doucement','La capture se déclenche au passage du point bleu.');take();}
+  if(auto){instruction('Balaye lentement','Les zones traversées sont enregistrées automatiquement.');take();}
   else{instruction('Cible alignée','Appuie sur Capturer pour enregistrer cette direction.');gate.reset();}
 }
 let previousTick=0;
@@ -791,14 +836,14 @@ $('finalCancel').onclick=()=>{const job=finalJob;if(!job)return;job.cancelled=tr
 $('showBefore').onclick=()=>{if(finalBeforeURL)$('finalImage').src=finalBeforeURL;};$('showAfter').onclick=()=>{if(finalAfterURL)$('finalImage').src=finalAfterURL;};
 $('finalDownload').onclick=()=>{if(finalBlob)download(finalBlob,'panorama_assemble_SDR.png');};
 $('finalShare').onclick=async()=>{if(!finalBlob)return;try{await navigator.share({files:[new File([finalBlob],'panorama_assemble_SDR.png',{type:'image/png'})],title:'Panorama assemblé'});}catch(e){if(e.name!=='AbortError')$('finalStatus').textContent='Partage impossible ; utilise Télécharger le PNG.';}};
-function sessionManifest(){return {app:'HDRI Atelier',version:'3.3',createdAt:new Date().toISOString(),imageType:'JPEG SDR',demo:state.demo,projection:'equirectangular preview with conservative image registration when supported, sensor fallback, single-source pixel selection; no HDR merge',basisConvention:'x right, y forward, z up; camera forward = rear lens axis',hfovEstimated:state.hfov,baseHeading:state.base,preview:{width:atlas.width,height:atlas.height,quality:'approximate'},targets:targets.map(t=>{const c=captures.get(t.id);return {index:t.id,label:t.label,yaw:t.yaw,pitch:t.pitch,filename:c?`capture_${String(t.id+1).padStart(2,'0')}.jpg`:null,...(c?{basis:c.basis,sensorBasis:c.sensorBasis||c.basis,registration:c.registration||null,hfov:c.hfov,width:c.width,height:c.height,recordedAt:c.recordedAt,frameSelection:c.frameSelection,sharpnessScore:c.sharpnessScore}:{} )};})};}
+function sessionManifest(){return {app:'HDRI Atelier',version:'3.4',createdAt:new Date().toISOString(),imageType:'JPEG SDR',demo:state.demo,projection:'equirectangular preview with conservative image registration when supported, sensor fallback, single-source pixel selection; no HDR merge',basisConvention:'x right, y forward, z up; camera forward = rear lens axis',hfovEstimated:state.hfov,baseHeading:state.base,preview:{width:atlas.width,height:atlas.height,quality:'approximate'},targets:targets.map(t=>{const c=captures.get(t.id);return {index:t.id,label:t.label,yaw:t.yaw,pitch:t.pitch,filename:c?`capture_${String(t.id+1).padStart(2,'0')}.jpg`:null,...(c?{basis:c.basis,sensorBasis:c.sensorBasis||c.basis,registration:c.registration||null,hfov:c.hfov,width:c.width,height:c.height,recordedAt:c.recordedAt,frameSelection:c.frameSelection,sharpnessScore:c.sharpnessScore}:{} )};})};}
 $('buildZip').onclick=async()=>{
   $('buildZip').disabled=true;await processing;$('exportStatus').textContent='Préparation des photos et de l’aperçu…';
   try{
     const entries=[...captures].sort((a,b)=>a[0]-b[0]).map(([id,c])=>({name:`capture_${String(id+1).padStart(2,'0')}.jpg`,blob:c.blob}));
     entries.push({name:'manifest.json',blob:new Blob([JSON.stringify(sessionManifest(),null,2)],{type:'application/json'})});
     entries.push({name:'apercu_panorama_SDR.png',blob:await canvasBlob(atlas,'image/png')});
-    entries.push({name:'LIRE_MOI.txt',blob:new Blob([`HDRI Atelier V3.3\n${state.demo?'SESSION DE DEMONSTRATION — images simulées.\n':''}${captures.size}/${targets.length} directions.\nPhotos JPEG SDR. L’aperçu est une projection équirectangulaire à partir des capteurs et d’un angle de champ estimé. Recalage par images lorsqu’il est suffisamment étayé ; estimation par capteurs sinon. Pas de fusion HDR. Des raccords et des zones manquantes restent possibles. Les zones transparentes sont non couvertes. Pour la qualité finale, assembler les images originales dans un logiciel panoramique.\n`],{type:'text/plain'})});
+    entries.push({name:'LIRE_MOI.txt',blob:new Blob([`HDRI Atelier V3.4\n${state.demo?'SESSION DE DEMONSTRATION — images simulées.\n':''}${captures.size}/${targets.length} directions.\nPhotos JPEG SDR. L’aperçu est une projection équirectangulaire à partir des capteurs et d’un angle de champ estimé. Recalage par images lorsqu’il est suffisamment étayé ; estimation par capteurs sinon. Pas de fusion HDR. Des raccords et des zones manquantes restent possibles. Les zones transparentes sont non couvertes. Pour la qualité finale, assembler les images originales dans un logiciel panoramique.\n`],{type:'text/plain'})});
     state.zip=await createZip(entries);state.zipName=`HDRI_Atelier_${state.demo?'DEMO_':''}${new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)}.zip`;
     $('buildZip').hidden=true;$('downloadZip').hidden=false;
     const file=new File([state.zip],state.zipName,{type:'application/zip'});$('shareZip').hidden=!navigator.canShare?.({files:[file]});
