@@ -1,3 +1,19 @@
+# Validation V3.5
+
+38 tests Node passent. Nouveaux tests : géométrie de la couverture du dôme,
+pondération par surface sphérique, mesure du champ à gauche/droite et rejet
+d’une référence inclinée ; contraintes de caméra par identifiant exact ;
+workflow de mesure sans capture ; verrouillage après le premier cliché ;
+changement de caméra et récupération de la précédente après refus.
+Un rendu synthétique du calque caméra a été inspecté.
+
+L’import ZIP accepte désormais les champs jusqu’à 120 degrés et la recherche
+finale reste bornée à 120 degrés. Les originaux et les sessions sont conservés.
+Pas de validation de la distorsion optique ou de la qualité des panoramas larges.
+Pas de test dans Safari ou sur iPhone réel. Pas de gain de cadence mesuré.
+
+## Historique
+
 # Validation V3.4
 
 33 tests Node passent. Ajouts : sélection lors de sortie de zone, interruption,
